@@ -1,7 +1,7 @@
 JBacon
 ======
 
-A Functional Reactive Programming library inspired by Bacon.js
+A Functional Reactive Programming library inspired by Bacon.js (https://github.com/raimohanska/bacon.js)
 
 // TODO: Description :D
 
