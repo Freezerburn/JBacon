@@ -1,7 +1,9 @@
 JBacon
 ======
 
-A Functional Reactive Programming library inspired by Bacon.js (https://github.com/raimohanska/bacon.js)
+A Functional Reactive Programming library inspired by Bacon.js (https://github.com/raimohanska/bacon.js).
+And by "inspired by", what I actually mean is "ported pretty much directly without DOM interaction,
+because Java doesn't interact with the DOM".
 
 // TODO: Description :D
 
