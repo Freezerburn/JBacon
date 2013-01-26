@@ -1,6 +1,7 @@
 package jbacon;
 
 import jbacon.interfaces.F;
+import jbacon.interfaces.F1;
 import jbacon.interfaces.Promise;
 import jbacon.interfaces.Streamable;
 import jbacon.types.Event;
@@ -113,8 +114,75 @@ public class JBacon {
         return null;
     }
 
-    public static <T> EventStream<T> interval(long interval, T val) {
-        return null;
+    public static <T extends Number> EventStream<T> interval(final long interval) {
+        final Event.Initial<T> initial = new Event.Initial<T>((T) new Long(0));
+        final EventStream<T> ret = new EventStream<T>() {
+            private boolean isRunning = true;
+            private boolean haveSubscriber = false;
+            private Event<T> firstEvent = initial;
+            private Object takeLock = new Object();
+            private boolean canTake = false;
+
+            private Thread eventCreater = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    long lastTime = System.nanoTime();
+                    while(isRunning) {
+                        long delta = System.nanoTime() - lastTime;
+                        lastTime = System.nanoTime();
+                        try {
+                            if(haveSubscriber) {
+                                if(firstEvent != null) {
+                                    synchronized (takeLock) {
+                                        canTake = true;
+                                        take(firstEvent);
+                                        canTake = false;
+                                        firstEvent = null;
+                                    }
+                                }
+                                else {
+                                    synchronized (takeLock) {
+                                        canTake = true;
+                                        take(new Event.Next<T>((T) new Long(delta)));
+                                        canTake = false;
+                                    }
+                                }
+                                Thread.sleep(interval);
+                            }
+                        } catch (InterruptedException e) {
+                            isRunning = false;
+                        }
+                    }
+                }
+            });
+
+            @Override
+            protected String take(final Event<T> event) {
+                if(this.canTake) {
+                    return super.take(event);
+                }
+                return Event.more;
+            }
+
+            @Override
+            public Runnable onValue(final F1<T, String> f) {
+                if(!this.haveSubscriber) {
+                    this.haveSubscriber = true;
+                    this.eventCreater.start();
+                }
+                return super.onValue(f);
+            }
+
+            @Override
+            public Runnable subscribe(final F1<Event<T>, String> f) {
+                if(!this.haveSubscriber) {
+                    this.haveSubscriber = true;
+                    this.eventCreater.start();
+                }
+                return super.subscribe(f);
+            }
+        };
+        return ret;
     }
 
     public static <T> EventStream<T> sequentially(long interval, T... vals) {
