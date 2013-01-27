@@ -5,6 +5,8 @@ import jbacon.types.Bus;
 import jbacon.types.Event;
 import jbacon.types.EventStream;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Created with IntelliJ IDEA.
  * User: freezerburn
@@ -24,7 +26,7 @@ public class Main {
             @Override
             public String run(Float val, Boolean isEnd) {
                 System.out.println("once.onValue: " + val + " end? " + isEnd);
-                if(isEnd) {
+                if (isEnd) {
                     return Event.noMore;
                 }
                 return Event.more;
@@ -38,11 +40,29 @@ public class Main {
             public String run(Long val1, Boolean val2) {
                 if(val2) return Event.noMore;
                 System.out.println("Interval received " + val1);
+                System.out.println(TimeUnit.MILLISECONDS.convert(val1, TimeUnit.NANOSECONDS));
                 numTimes++;
                 if(numTimes > 4) {
                     System.out.println("Interval limit hit, ending");
                     return Event.noMore;
                 }
+                return Event.more;
+            }
+        });
+
+        EventStream<Long> test2 = JBacon.fromArray();
+        EventStream<Long> test3 = JBacon.fromArray(10L, 20L, 30L);
+        test2.onValue(new F2<Long, Boolean, String>() {
+            @Override
+            public String run(Long val1, Boolean val2) {
+                System.out.println("FromArray empty: val=" + val1 + ", isEnd=" + val2);
+                return Event.more;
+            }
+        });
+        test3.onValue(new F2<Long, Boolean, String>() {
+            @Override
+            public String run(Long val1, Boolean val2) {
+                System.out.println("FromArray non-empty: val=" + val1 + ", isEnd=" + val2);
                 return Event.more;
             }
         });

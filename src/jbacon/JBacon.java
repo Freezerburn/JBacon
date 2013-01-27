@@ -112,8 +112,33 @@ public class JBacon {
         return ret;
     }
 
-    public static <T> EventStream<T> fromArray(T... vals) {
-        return null;
+    public static <T> EventStream<T> fromArray(final T... vals) {
+        final Event<T> initial = vals.length > 0 ? new Event.Initial<T>(vals[0]) : new Event.End<T>();
+        final EventStream<T> ret = new EventStream<T>() {
+            private boolean canTake = false;
+
+            @Override
+            protected void onSubscribe() {
+                this.canTake = true;
+                this.distribute(initial);
+                for(int i = 1; i < vals.length; i++) {
+                    this.distribute(new Event.Next<T>(vals[i]));
+                }
+                if(vals.length > 0) {
+                    this.distribute(new Event.End<T>());
+                }
+                this.canTake = false;
+            }
+
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(this.canTake) {
+                    return Event.pass;
+                }
+                return Event.noPass;
+            }
+        };
+        return ret;
     }
 
     public static <T extends Number> EventStream<T> interval(final long interval) {
@@ -137,6 +162,7 @@ public class JBacon {
                                 distribute(firstEvent);
                                 canTake = false;
                                 firstEvent = null;
+                                lastTime = System.nanoTime();
                             }
                         }
                         else {
@@ -156,7 +182,6 @@ public class JBacon {
             protected void onSubscribe() {
                 if(!this.isRunning) {
                     this.isRunning = true;
-                    lastTime = System.nanoTime();
                     JBacon.intervalScheduler.schedule(this.timer, interval, interval);
                 }
             }
