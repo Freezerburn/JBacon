@@ -49,6 +49,17 @@ public class Main {
                 return Event.more;
             }
         });
+        test1.map(JBacon.intervalInSeconds).onValue(new F2<Float, Boolean, String>() {
+            protected int numTimes = 0;
+            @Override
+            public String run(Float val1, Boolean val2) {
+                if(val2) return Event.noMore;
+                System.out.println("Interval in sec: " + val1);
+                numTimes++;
+                if(numTimes > 4) return Event.noMore;
+                return Event.more;
+            }
+        });
 
         EventStream<Long> test2 = JBacon.fromArray();
         EventStream<Long> test3 = JBacon.fromArray(10L, 20L, 30L);

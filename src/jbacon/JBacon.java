@@ -212,6 +212,28 @@ public class JBacon {
         return ret;
     }
 
+    /**
+     * For use with <code>JBacon.interval(...).map(intervalInMillis)<code/>. Converts all events from
+     * an interval EventStream to milliseconds.
+     */
+    public static final F1<Long, Long> intervalInMillis = new F1<Long, Long>() {
+        @Override
+        public Long run(Long val) {
+            return TimeUnit.MILLISECONDS.convert(val, TimeUnit.NANOSECONDS);
+        }
+    };
+
+    /**
+     * For use with <code>JBacon.interval(...).map(intervalInSeconds)<code/>. Converts all events from
+     * an interval EventStream to seconds.
+     */
+    public static final F1<Long, Float> intervalInSeconds = new F1<Long, Float>() {
+        @Override
+        public Float run(Long val) {
+            return val / 1000000000.0f;
+        }
+    };
+
     public static <T> EventStream<T> sequentially(long interval, T... vals) {
         return null;
     }
