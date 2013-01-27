@@ -141,11 +141,23 @@ public class JBacon {
         return ret;
     }
 
-    public static <T extends Number> EventStream<T> interval(final long interval) {
-        final Event.Initial<T> initial = new Event.Initial<T>((T) new Long(0));
-        final EventStream<T> ret = new EventStream<T>() {
+    /**
+     * Creates an EventStream that at the specified interval, will pass the time delta in nanoseconds
+     * to any subscribers. Note that this can vary slightly due to inaccuracies in the system clock, or
+     * possibly other reasons. It should be pretty close to the actual interval specified, but not
+     * exactly. <br/>
+     *
+     * Please note that Event.Initial will be fired with a time delta of 0.
+     * @param interval The time to delay each event fire.
+     * @param timeUnit The units of time for the interval.
+     * @return The EventStream that can be subscribed to which fires time deltas in nanoseconds.
+     */
+    public static EventStream<Long> interval(final long interval, final TimeUnit timeUnit) {
+        final long millisInterval = TimeUnit.MILLISECONDS.convert(interval, timeUnit);
+        final Event.Initial<Long> initial = new Event.Initial<Long>(0L);
+        final EventStream<Long> ret = new EventStream<Long>() {
             private boolean isRunning = false;
-            private Event<T> firstEvent = initial;
+            private Event<Long> firstEvent = initial;
             private final Object takeLock = new Object();
             private boolean canTake = false;
             private long lastTime;
@@ -170,7 +182,7 @@ public class JBacon {
                                 canTake = true;
                                 long interval = System.nanoTime() - lastTime;
                                 lastTime = System.nanoTime();
-                                distribute(new Event.Next<T>((T) new Long(interval)));
+                                distribute(new Event.Next<Long>(interval));
                                 canTake = false;
                             }
                         }
@@ -182,12 +194,12 @@ public class JBacon {
             protected void onSubscribe() {
                 if(!this.isRunning) {
                     this.isRunning = true;
-                    JBacon.intervalScheduler.schedule(this.timer, interval, interval);
+                    JBacon.intervalScheduler.schedule(this.timer, millisInterval, millisInterval);
                 }
             }
 
             @Override
-            protected String onDistribute(final Event<T> event) {
+            protected String onDistribute(final Event<Long> event) {
                 if(event.isEnd()) {
                     this.timer.cancel();
                 }

@@ -33,7 +33,7 @@ public class Main {
             }
         });
 
-        EventStream<Long> test1 = JBacon.interval(100);
+        EventStream<Long> test1 = JBacon.interval(100, TimeUnit.MILLISECONDS);
         test1.onValue(new F2<Long, Boolean, String>() {
             protected int numTimes = 0;
             @Override
