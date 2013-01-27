@@ -5,7 +5,51 @@ A Functional Reactive Programming library inspired by Bacon.js (https://github.c
 And by "inspired by", what I actually mean is "ported pretty much directly without DOM interaction,
 because Java doesn't interact with the DOM".
 
-// TODO: Description :D
+# API Reference
+## JBacon.java
+### Overview
+A utility class that is used to create a myriad of types of ```EventStream```s, ranging from an ```EventStream```
+that immediately ends to an ```EventStream``` that pushes values at regular intervals.
+
+Please note that if you use JBacon, in order for your program to shut down properly, a ```System.exit``` call
+must be made for shutdown hooks JBacon creates upon program startup. This cleanly stops concurrent ```EventStream```
+tasks from running, thus allowing the program to actually stop.
+### Methods
+####```<T> EventStream<T> once(T val)```  
+Creates an ```EventStream``` that emits the passed value ```val``` a single time, and then promptly ends.
+The val will only be emitted when something subscribes either to the returned ```EventStream```, or to any
+new ```EventStream```s made by calling methods such as ```EventStream.map```.  
+
+Method is generic so that any type of ```EventStream``` can be created. The returned ```EventStream``` will emit two 
+things: ```Event.Initial<T>(val)``` and ```Event.End```. No further values will be emitted.
+
+####```<T> EventStream<T> fromArray(T... vals)```
+Creates an ```EventStream``` that immeidately emits the values passed to the ```fromArray``` method to the first
+subscriber, then promptly ends. Please note that there is no delay between emitting each value, please see
+```JBacon.sequentially``` for that functionality.
+
+NOTE: As of Jan 27, 2013 there is a bug in the implementation where the passed values can be emitted in
+a different order than passed to ```fromArray```. This is due to threads being run in different orders. A good
+way to synchronize the ```EventStream``` so as to emit the values in the correct order every time is needed.
+
+// TODO: Write documentation for the rest of the JBacon methods/constants
+
+## Observable.java
+// TODO: Write documentation
+## EventStream.java
+// TODO: Write documentation
+## Property.java
+// TODO: Write documentation
+## Bus.java
+// TODO: Write documentation
+## Event.java
+// TODO: Write documentation
+## Streamable.java
+// TODO: Write documentation
+## F.java / F1.java / F2.java
+// TODO: Write documentation
+## Promise.java
+// TODO: Write documentation
 
 License (also in LICENSE)
 =========================
