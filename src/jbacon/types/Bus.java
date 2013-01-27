@@ -17,7 +17,7 @@ public class Bus<T> extends EventStream<T> {
 
     public void push(Event<T> e) {
         this.broadcastEvent(e);
-        this.take(e);
+        this.distribute(e);
     }
 
     public void end() {
@@ -29,7 +29,7 @@ public class Bus<T> extends EventStream<T> {
                 JBacon.threading.submit(new Runnable() {
                     @Override
                     public void run() {
-                        stream.take(end);
+                        stream.distribute(end);
                     }
                 });
             }
@@ -48,7 +48,7 @@ public class Bus<T> extends EventStream<T> {
                 JBacon.threading.submit(new Runnable() {
                     @Override
                     public void run() {
-                        String ret = stream.take(e);
+                        String ret = stream.distribute(e);
                         if(ret.equals(Event.noMore)) {
                             Bus.this.unplug(stream);
                         }

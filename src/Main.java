@@ -1,5 +1,6 @@
 import jbacon.JBacon;
 import jbacon.interfaces.F1;
+import jbacon.interfaces.F2;
 import jbacon.types.Bus;
 import jbacon.types.Event;
 import jbacon.types.EventStream;
@@ -12,22 +13,49 @@ import jbacon.types.EventStream;
  */
 public class Main {
     public static void main(String[] args) {
-        EventStream<Long> test = JBacon.interval(500);
-        test.onValue(new F1<Long, String>() {
+        EventStream<Float> test = JBacon.once((Number) 500).map(new F1<Number, Float>() {
             @Override
-            public String run(Long val) {
-                System.out.println("Interval: " + val);
+            public Float run(Number val) {
+                System.out.println("Map: val " + val + " to " + (val.longValue() / 100.0f));
+                return val.longValue() / 100.0f;
+            }
+        });
+        test.onValue(new F2<Float, Boolean, String>() {
+            @Override
+            public String run(Float val, Boolean isEnd) {
+                System.out.println("once.onValue: " + val + " end? " + isEnd);
+                if(isEnd) {
+                    return Event.noMore;
+                }
                 return Event.more;
             }
         });
-        Bus<Long> testBus = new Bus<Long>();
-        testBus.plug(test);
+
+        EventStream<Long> test1 = JBacon.interval(100);
+        test1.onValue(new F2<Long, Boolean, String>() {
+            protected int numTimes = 0;
+            @Override
+            public String run(Long val1, Boolean val2) {
+                if(val2) return Event.noMore;
+                System.out.println("Interval received " + val1);
+                numTimes++;
+                if(numTimes > 4) {
+                    System.out.println("Interval limit hit, ending");
+                    return Event.noMore;
+                }
+                return Event.more;
+            }
+        });
+
+        Bus<Long> timerBus = new Bus<Long>();
+        timerBus.plug(test1);
+
         try {
             Thread.sleep(1600);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        testBus.end();
+        timerBus.end();
         System.exit(0);
     }
 }

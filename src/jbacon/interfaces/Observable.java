@@ -12,8 +12,8 @@ import jbacon.types.Property;
 public interface Observable<T> {
     /**
      * Maps a constant value to an EventStream, so that whenever a value gets pushed to this Observer,
-     * it will take the constant value to the returned EventStream.
-     * @param val The constant value to take to the returned EventStream.
+     * it will distribute the constant value to the returned EventStream.
+     * @param val The constant value to distribute to the returned EventStream.
      * @return An EventStream that only emits the value val.
      */
     public EventStream<T> map(T val);

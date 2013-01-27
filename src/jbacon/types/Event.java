@@ -10,6 +10,8 @@ package jbacon.types;
 public abstract class Event<T> {
     public static final String noMore = "veggies!";
     public static final String more = "moar bacon!";
+    public static final String pass = "good bacon!";
+    public static final String noPass = "bad bacon!";
     private static long nextUid = 0;
 
     protected T val;

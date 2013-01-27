@@ -3,6 +3,7 @@ package jbacon.types;
 import jbacon.JBacon;
 import jbacon.interfaces.F;
 import jbacon.interfaces.F1;
+import jbacon.interfaces.F2;
 import jbacon.interfaces.Observable;
 
 import java.util.LinkedList;
@@ -14,29 +15,38 @@ import java.util.LinkedList;
  * Time: 1:24 PM
  */
 public class EventStream<T> implements Observable<T> {
+    protected static long nextUid = 0;
+    protected final long uid = nextUid++;
+
+    protected EventStream<?> parent;
     protected boolean ended = false;
 
-    protected Object valueLock = new Object();
-    protected LinkedList<F1<T, String>> valueSubscribers = new LinkedList<F1<T, String>>();
+    protected final Object valueLock = new Object();
+    protected LinkedList<F2<T, Boolean, String>> valueSubscribers = new LinkedList<F2<T, Boolean, String>>();
 
-    protected Object eventLock = new Object();
+    protected final Object eventLock = new Object();
     protected LinkedList<F1<Event<T>, String>> eventSubscribers = new LinkedList<F1<Event<T>, String>>();
 
-    protected Object errorLock = new Object();
+    protected final Object errorLock = new Object();
     protected LinkedList<F1<String, Event.ErrRet<T>>> errorSubscribers = new LinkedList<F1<String, Event.ErrRet<T>>>();
 
-    protected Object streamLock = new Object();
+    protected final Object streamLock = new Object();
     protected LinkedList<EventStream<T>> returnedStreams = new LinkedList<EventStream<T>>();
 
-    protected void asyncEventRunNoCheck(final Event<T> val) {
-        for(final F1<Event<T>, String> subscriber : this.eventSubscribers) {
-            JBacon.threading.submit(new Runnable() {
-                @Override
-                public void run() {
-                    subscriber.run(val);
-                }
-            });
+    // ***
+    // The following are several methods that can be used to influence the way an EventStream works
+    // without touching the inner workings of the EventStream itself. This allows us to easily create
+    // things such as JBacon.once without having to override the distribute method.
+    // ***
+
+    protected void onSubscribe() {
+        if(parent != null) {
+            parent.onSubscribe();
         }
+    }
+
+    protected String onDistribute(final Event<T> event) {
+        return Event.pass;
     }
 
     protected void asyncEventRun(final Event<T> val) {
@@ -46,6 +56,7 @@ public class EventStream<T> implements Observable<T> {
                 public void run() {
                     final String ret = subscriber.run(val);
                     if(ret.equals(Event.noMore)) {
+                        System.out.println(uid + ": Unsubscribing event listener " + subscriber);
                         EventStream.this.unsubscribe(subscriber);
                     }
                 }
@@ -54,12 +65,13 @@ public class EventStream<T> implements Observable<T> {
     }
 
     protected void asyncValueRun(final Event<T> val) {
-        for(final F1<T, String> subscriber : this.valueSubscribers) {
+        for(final F2<T, Boolean, String> subscriber : this.valueSubscribers) {
             JBacon.threading.submit(new Runnable() {
                 @Override
                 public void run() {
-                    final String ret = subscriber.run(val.getValue());
+                    final String ret = subscriber.run(val.isEnd() ? null : val.getValue(), val.isEnd());
                     if(ret.equals(Event.noMore)) {
+                        System.out.println(uid + ": Unsubscribing value listener " + subscriber);
                         EventStream.this.onValueUnsubscribe(subscriber);
                     }
                 }
@@ -67,13 +79,14 @@ public class EventStream<T> implements Observable<T> {
         }
     }
 
-    protected void asyncStreamtake(final Event<T> val) {
+    protected void asyncStreamTake(final Event<T> val) {
         for(final EventStream<T> stream : this.returnedStreams) {
             JBacon.threading.submit(new Runnable() {
                 @Override
                 public void run() {
-                    final String ret = stream.take(val);
+                    final String ret = stream.distribute(val);
                     if(ret.equals(Event.noMore)) {
+                        System.out.println(uid + ": Unsubscribing stream " + stream.uid);
                         EventStream.this.streamUnsubscribe(stream);
                     }
                 }
@@ -88,47 +101,54 @@ public class EventStream<T> implements Observable<T> {
                 public void run() {
                     final Event.ErrRet<T> ret = subscriber.run(val.getError());
                     if(ret.eventStatus.equals(Event.noMore)) {
+                        System.out.println(uid + ": Unsubscribing error listener " + subscriber);
                         EventStream.this.errorUnsubscribe(subscriber);
                     }
-                    EventStream.this.take(new Event.Next<T>(ret.ret));
+                    EventStream.this.distribute(new Event.Next<T>(ret.ret));
                 }
             });
         }
     }
 
-    protected void asyncStreamTakeNoCheck(final Event<T> val) {
-        for(final EventStream<T> stream : this.returnedStreams) {
-            JBacon.threading.submit(new Runnable() {
-                @Override
-                public void run() {
-                    stream.take(val);
-                }
-            });
+    protected void endStream(final Event<T> optional) {
+        System.out.println(this.uid + ": ending stream" +
+                " e(" + eventSubscribers.size() + ")" +
+                " v(" + valueSubscribers.size() + ")" +
+                " s(" + returnedStreams.size() + ")");
+        this.ended = true;
+        final Event<T> end = optional == null ? new Event.End<T>() : optional;
+        synchronized (this.eventLock) {
+            this.asyncEventRun(end);
+            this.eventSubscribers.clear();
         }
+        synchronized (this.errorLock) {
+            this.errorSubscribers.clear();
+        }
+        synchronized (this.valueLock) {
+            this.asyncValueRun(end);
+            this.valueSubscribers.clear();
+        }
+        synchronized (this.streamLock) {
+            this.asyncStreamTake(end);
+            this.returnedStreams.clear();
+        }
+        System.out.println(this.uid + ": ended" +
+                " e(" + eventSubscribers.size() + ")" +
+                " v(" + valueSubscribers.size() + ")" +
+                " s(" + returnedStreams.size() + ")");
     }
 
-    protected String take(final Event<T> val) {
+    protected String distribute(final Event<T> val) {
         if(this.ended) return Event.noMore;
 
-        // TODO: Cleaner/better way to handle events?
+        final String todo = this.onDistribute(val);
         // *** END HANDLING
-        if(val.isEnd()) {
-            this.ended = true;
-            synchronized (this.eventLock) {
-                this.asyncEventRunNoCheck(val);
-                this.eventSubscribers.clear();
-            }
-            synchronized (this.errorLock) {
-                this.errorSubscribers.clear();
-            }
-            synchronized (this.valueLock) {
-                this.valueSubscribers.clear();
-            }
-            synchronized (this.streamLock) {
-                this.asyncStreamTakeNoCheck(val);
-                this.returnedStreams.clear();
-            }
+        if(val.isEnd() || todo.equals(Event.noMore)) {
+            this.endStream(val);
             return Event.noMore;
+        }
+        else if(todo.equals(Event.noPass)) {
+            return Event.more;
         }
         // *** VALUE HANDLING
         else if(val.hasValue()) {
@@ -139,7 +159,7 @@ public class EventStream<T> implements Observable<T> {
                 this.asyncValueRun(val);
             }
             synchronized (this.streamLock) {
-                this.asyncStreamtake(val);
+                this.asyncStreamTake(val);
             }
         }
         // *** ERROR HANDLING
@@ -151,7 +171,7 @@ public class EventStream<T> implements Observable<T> {
                 this.asyncErrorRun(val);
             }
             synchronized (this.streamLock) {
-                this.asyncStreamtake(val);
+                this.asyncStreamTake(val);
             }
         }
 
@@ -162,7 +182,7 @@ public class EventStream<T> implements Observable<T> {
         return this.ended;
     }
 
-    public Runnable onValue(final F1<T, String> f) {
+    public Runnable onValue(final F2<T, Boolean, String> f) {
         if(this.ended) return null;
         final Runnable ret = new Runnable() {
             @Override
@@ -173,6 +193,7 @@ public class EventStream<T> implements Observable<T> {
         synchronized (this.valueLock) {
             this.valueSubscribers.push(f);
         }
+        this.onSubscribe();
         return ret;
     }
 
@@ -187,11 +208,12 @@ public class EventStream<T> implements Observable<T> {
         synchronized (this.eventLock) {
             this.eventSubscribers.push(f);
         }
+        this.onSubscribe();
         return ret;
     }
 
 
-    private void onValueUnsubscribe(final F1<T, String> f) {
+    private void onValueUnsubscribe(final F2<T, Boolean, String> f) {
         if(this.ended) return;
         synchronized (this.valueLock) {
             this.valueSubscribers.remove(f);
@@ -223,14 +245,15 @@ public class EventStream<T> implements Observable<T> {
     public EventStream<T> map(final T val) {
         final EventStream<T> ret = new EventStream<T>() {
             @Override
-            protected String take(final Event<T> event) {
+            protected String distribute(final Event<T> event) {
                 // This should be safe because if the event retrieves a val, it will be the constant we want,
                 // and if it isn't one that can retrieve a val, it'll throw an exception (or if handled correctly
                 // it will just never be touched)
                 event.val = val;
-                return super.take(event);
+                return super.distribute(event);
             }
         };
+        ret.parent = this;
         synchronized (this.streamLock) {
             this.returnedStreams.push(ret);
         }
@@ -242,10 +265,9 @@ public class EventStream<T> implements Observable<T> {
         final EventStream<K> ret = new EventStream<K>();
         // Takes in events through the current EventStream and converts them to a value accepted by the
         // returned EventStream before pushing them to the returned EventStream.
-        // TODO: Use a "lighter" structure? EvenStream is pretty heavy to allocate purely for transforming one thing
         final EventStream<T> intermediary = new EventStream<T>() {
             @Override
-            protected String take(final Event<T> event) {
+            protected String distribute(final Event<T> event) {
                 Event<K> newEvent;
                 if(event.isInitial()) {
                     newEvent = new Event.Initial<K>(getFromVal.run(event.getValue()));
@@ -259,11 +281,13 @@ public class EventStream<T> implements Observable<T> {
                 else {
                     newEvent = new Event.Error<K>(event.getError());
                 }
-                // We don't even want to call our own take, we're merely here to transmit the transformed
+                // We don't even want to call our own distribute, we're merely here to transmit the transformed
                 // Event to the returned EventStream.
-                return ret.take(newEvent);
+                return ret.distribute(newEvent);
             }
         };
+        intermediary.parent = this;
+        ret.parent = intermediary;
         synchronized (this.streamLock) {
             this.returnedStreams.push(intermediary);
         }
@@ -274,11 +298,12 @@ public class EventStream<T> implements Observable<T> {
     public EventStream<T> map(final F<T> func) {
         final EventStream<T> ret = new EventStream<T>() {
             @Override
-            protected String take(final Event<T> event) {
+            protected String distribute(final Event<T> event) {
                 event.val = func.run();
-                return super.take(event);
+                return super.distribute(event);
             }
         };
+        ret.parent = this;
         synchronized (streamLock) {
             this.returnedStreams.push(ret);
         }
@@ -289,15 +314,16 @@ public class EventStream<T> implements Observable<T> {
     public EventStream<T> filter(final F1<T, Boolean> func) {
         final EventStream<T> ret = new EventStream<T>() {
             @Override
-            protected String take(final Event<T> event) {
+            protected String distribute(final Event<T> event) {
                 if(event.hasValue()) {
                     if(func.run(event.val)) {
-                        return super.take(event);
+                        return super.distribute(event);
                     }
                 }
                 return Event.more;
             }
         };
+        ret.parent = this;
         synchronized (this.streamLock) {
             this.returnedStreams.push(ret);
         }
