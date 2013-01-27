@@ -2,7 +2,6 @@ package jbacon;
 
 import jbacon.interfaces.F;
 import jbacon.interfaces.F1;
-import jbacon.interfaces.F2;
 import jbacon.interfaces.Streamable;
 import jbacon.types.Event;
 import jbacon.types.EventStream;
@@ -14,8 +13,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Created with IntelliJ IDEA.
- * User: freezerburn
+ * A utility class that is used to create a myriad of types of EventStreams, ranging from an EventStream that
+ * immediately ends to an EventStream that pushes values at regular intervals. <br/>
+ *
+ * Please note that if you use JBacon, in order for your program to shut down properly, a System.exit call
+ * must be made for shutdown hooks JBacon creates upon program startup. This cleanly stops concurrent StreamEvent
+ * tasks from running, thus allowing the program to actually stop.
+ *
+ * User: Vincent "Freezerburn" Kuyatt
  * Date: 1/24/13
  * Time: 1:46 AM
  */
@@ -54,6 +59,8 @@ public class JBacon {
                 }
             }
         });
+//        streamableUpdater.setDaemon(true);
+        // Make sure all our threads get shut down when the program quits.
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
@@ -90,6 +97,13 @@ public class JBacon {
 //        return null;
 //    }
 
+    /**
+     * Creates an EventStream that pushes the passed value to the first subscriber once, and then
+     * immediately ends.
+     * @param val The value to be pushed to the first subscriber.
+     * @param <T> The type of the value.
+     * @return The EventStream that will push the value.
+     */
     public static <T> EventStream<T> once(final T val) {
         final Event.Initial<T> onceEvent = new Event.Initial<T>(val);
         final Event.End<T> endEvent = new Event.End<T>();
@@ -112,6 +126,16 @@ public class JBacon {
         return ret;
     }
 
+    /**
+     * Creates an EventStream that will pass all parameters to the first subscriber, then immediately
+     * end. <br/>
+     *
+     * BUG: The parameters given to fromArray have a chance of being given to the first subscriber
+     * out of order.
+     * @param vals The values to be pushed to the first subscriber.
+     * @param <T> The type of the values.
+     * @return An EventStream that pushes the parameters to the first subscriber.
+     */
     public static <T> EventStream<T> fromArray(final T... vals) {
         final Event<T> initial = vals.length > 0 ? new Event.Initial<T>(vals[0]) : new Event.End<T>();
         final EventStream<T> ret = new EventStream<T>() {
