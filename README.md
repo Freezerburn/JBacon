@@ -24,7 +24,7 @@ Method is generic so that any type of ```EventStream``` can be created. The retu
 things: ```Event.Initial<T>(val)``` and ```Event.End```. No further values will be emitted.
 
 ####```<T> EventStream<T> fromArray(T... vals)```
-Creates an ```EventStream``` that immeidately emits the values passed to the ```fromArray``` method to the first
+Creates an ```EventStream``` that immediately emits the values passed to the ```fromArray``` method to the first
 subscriber, then promptly ends. Please note that there is no delay between emitting each value, please see
 ```JBacon.sequentially``` for that functionality.
 
