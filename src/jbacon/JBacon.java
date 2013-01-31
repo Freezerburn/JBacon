@@ -323,6 +323,76 @@ public class JBacon {
                                 canTake = true;
                                 long interval = System.nanoTime() - lastTime;
                                 lastTime = System.nanoTime();
+                                cur++;
+                                if(cur == vals.length) {
+                                    distribute(new Event.End());
+                                    canTake = false;
+                                }
+                                else {
+                                    T next = vals[cur];
+                                    distribute(new Event.Next<T>(next));
+                                    canTake = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            @Override
+            protected void onSubscribe() {
+                if(!this.isRunning) {
+                    this.isRunning = true;
+                    JBacon.intervalScheduler.schedule(this.timer, millisInterval, millisInterval);
+                }
+            }
+
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(event.isEnd()) {
+                    this.timer.cancel();
+                    return Event.noMore;
+                }
+                if(this.canTake) {
+                    return Event.pass;
+                }
+                return Event.noPass;
+            }
+        };
+        return ret;
+    }
+
+    public static <T> EventStream<T> repeatedly(long interval, TimeUnit timeUnit, final T... vals) {
+        final long millisInterval = TimeUnit.MILLISECONDS.convert(interval, timeUnit);
+        final Event.Initial<T> initial = new Event.Initial<T>(vals[0]);
+        final EventStream<T> ret = new EventStream<T>() {
+            private boolean isRunning = false;
+            private Event<T> firstEvent = initial;
+            private final Object takeLock = new Object();
+            private boolean canTake = false;
+            private int cur = 0;
+            private long lastTime;
+            private TimerTask timer = new TimerTask() {
+                @Override
+                public void run() {
+                    if(!eventSubscribers.isEmpty() ||
+                            !valueSubscribers.isEmpty() ||
+                            !errorSubscribers.isEmpty() ||
+                            !returnedStreams.isEmpty()) {
+                        if(firstEvent != null) {
+                            synchronized (takeLock) {
+                                canTake = true;
+                                distribute(firstEvent);
+                                canTake = false;
+                                firstEvent = null;
+                                lastTime = System.nanoTime();
+                            }
+                        }
+                        else {
+                            synchronized (takeLock) {
+                                canTake = true;
+                                long interval = System.nanoTime() - lastTime;
+                                lastTime = System.nanoTime();
                                 cur = (cur + 1) % vals.length;
                                 T next = vals[cur];
                                 distribute(new Event.Next<T>(next));
@@ -353,10 +423,6 @@ public class JBacon {
             }
         };
         return ret;
-    }
-
-    public static <T> EventStream<T> repeatedly(long interval, T... vals) {
-        return null;
     }
 
     public static <T> EventStream<T> never() {

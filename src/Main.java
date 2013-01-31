@@ -107,6 +107,23 @@ public class Main {
             }
         });
 
+        EventStream<Float> test6 = JBacon.repeatedly(500, TimeUnit.MILLISECONDS, 4.0f);
+        EventStream<Float> test7 = JBacon.repeatedly(500, TimeUnit.MILLISECONDS, 5.0f, 6.0f);
+        test6.onValue(new F2<Float, Boolean, String>() {
+            @Override
+            public String run(Float val1, Boolean val2) {
+                System.out.println("ES1-Repeatedly: " + val1);
+                return Event.more;
+            }
+        });
+        test7.onValue(new F2<Float, Boolean, String>() {
+            @Override
+            public String run(Float val1, Boolean val2) {
+                System.out.println("ES2-Repeatedly: " + val1);
+                return Event.more;
+            }
+        });
+
         try {
             Thread.sleep(1600);
         } catch (InterruptedException e) {
