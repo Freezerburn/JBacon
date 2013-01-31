@@ -124,6 +124,14 @@ public class Main {
             }
         });
 
+        JBacon.never().onValue(new F2<Object, Boolean, String>() {
+            @Override
+            public String run(Object val1, Boolean val2) {
+                System.out.println("Never: " + val1 + ", " + val2);
+                return Event.more;
+            }
+        });
+
         try {
             Thread.sleep(1600);
         } catch (InterruptedException e) {

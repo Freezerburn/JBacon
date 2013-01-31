@@ -426,7 +426,17 @@ public class JBacon {
     }
 
     public static <T> EventStream<T> never() {
-        return null;
+        return new EventStream<T>() {
+            @Override
+            protected void onSubscribe() {
+                this.distribute(new Event.End<T>());
+            }
+
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                return Event.noMore;
+            }
+        };
     }
 
     // This is DOM-specific in Bacon. Can I make my own version of this?
