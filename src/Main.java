@@ -5,6 +5,7 @@ import jbacon.types.Bus;
 import jbacon.types.Event;
 import jbacon.types.EventStream;
 
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -62,7 +63,7 @@ public class Main {
         });
 
         EventStream<Long> test2 = JBacon.fromArray();
-        EventStream<Long> test3 = JBacon.fromArray(10L, 20L, 30L);
+        EventStream<Long> test3 = JBacon.fromArray(10L, 20L, 30L, 40L, 50L, 60L, 70L, 80L, 90L, 100L);
         test2.onValue(new F2<Long, Boolean, String>() {
             @Override
             public String run(Long val1, Boolean val2) {
@@ -71,10 +72,18 @@ public class Main {
             }
         });
         test3.onValue(new F2<Long, Boolean, String>() {
+            ArrayList<Long> vals = new ArrayList<Long>();
             @Override
             public String run(Long val1, Boolean val2) {
-                System.out.println("FromArray non-empty: val=" + val1 + ", isEnd=" + val2);
-                return Event.more;
+                if(val2) {
+                    System.out.println("FromArray non-empty: " + vals);
+                    return Event.noMore;
+                }
+                else {
+                    vals.add(val1);
+                    return Event.more;
+                }
+//                System.out.println("FromArray non-empty: val=" + val1 + ", isEnd=" + val2);
             }
         });
 

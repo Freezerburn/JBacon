@@ -8,9 +8,7 @@ import jbacon.types.EventStream;
 
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * A utility class that is used to create a myriad of types of EventStreams, ranging from an EventStream that
@@ -64,6 +62,8 @@ public class JBacon {
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
+                System.out.println("Shutting down interval/sequentially/etc. Timer thread...");
+                intervalScheduler.cancel();
                 try {
                     System.out.println("Shutting down JBacon threads...");
                     JBacon.threading.shutdown();
@@ -137,7 +137,18 @@ public class JBacon {
      * @return An EventStream that pushes the parameters to the first subscriber.
      */
     public static <T> EventStream<T> fromArray(final T... vals) {
-        final Event<T> initial = vals.length > 0 ? new Event.Initial<T>(vals[0]) : new Event.End<T>();
+        final SynchronousQueue<T> queue = new SynchronousQueue<T>(true);
+        final Event<T> initial = vals.length > 0 ? new Event.Initial<T>(null) {
+            @Override
+            public T getValue() {
+                try {
+                    T ret = queue.take();
+                    return ret;
+                } catch (InterruptedException e) {
+                }
+                return null;
+            }
+        } : new Event.End<T>();
         final EventStream<T> ret = new EventStream<T>() {
             private boolean canTake = false;
 
@@ -145,11 +156,34 @@ public class JBacon {
             protected void onSubscribe() {
                 this.canTake = true;
                 this.distribute(initial);
+                if(vals.length > 0) {
+                    try {
+                        queue.put(vals[0]);
+                    } catch (InterruptedException e) {
+                    }
+                }
                 for(int i = 1; i < vals.length; i++) {
-                    this.distribute(new Event.Next<T>(vals[i]));
+                    Event<T> next = new Event.Next<T>(null) {
+                        @Override
+                        public T getValue() {
+                            try {
+                                T ret = queue.take();
+                                return ret;
+                            } catch (InterruptedException e) {
+                            }
+                            return null;
+                        }
+                    };
+                    this.distribute(next);
+                    try {
+                        queue.put(vals[i]);
+                    } catch (InterruptedException e) {
+                    }
                 }
                 if(vals.length > 0) {
+                    System.out.println(1);
                     this.distribute(new Event.End<T>());
+                    System.out.println(2);
                 }
                 this.canTake = false;
             }
