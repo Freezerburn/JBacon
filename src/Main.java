@@ -71,7 +71,7 @@ public class Main {
                 return Event.more;
             }
         });
-        test3.onValue(new F2<Long, Boolean, String>() {
+        test3.filter(false).onValue(new F2<Long, Boolean, String>() {
             ArrayList<Long> vals = new ArrayList<Long>();
             @Override
             public String run(Long val1, Boolean val2) {

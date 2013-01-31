@@ -311,6 +311,24 @@ public class EventStream<T> implements Observable<T> {
     }
 
     @Override
+    public EventStream<T> filter(final boolean shouldAllow) {
+        final EventStream<T> ret = new EventStream<T>() {
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(shouldAllow) {
+                    return Event.pass;
+                }
+                return Event.noPass;
+            }
+        };
+        ret.parent = this;
+        synchronized (streamLock) {
+            this.returnedStreams.push(ret);
+        }
+        return ret;
+    }
+
+    @Override
     public EventStream<T> filter(final F1<T, Boolean> func) {
         final EventStream<T> ret = new EventStream<T>() {
             @Override

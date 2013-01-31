@@ -47,7 +47,7 @@ public interface Observable<T> {
 //    public EventStream<T> mapEnd(T val);
 //    public <K> EventStream<K> mapEnd(F1<T, K> funcOnEnd);
 //
-//    public EventStream<Boolean> filter(boolean val);
+    public EventStream<T> filter(boolean val);
     public EventStream<T> filter(F1<T, Boolean> func);
 //    public EventStream<T> filter(T val, F1<T, Boolean> getFromVal);
 //
