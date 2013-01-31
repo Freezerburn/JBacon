@@ -81,6 +81,23 @@ public class Main {
         Bus<Long> timerBus = new Bus<Long>();
         timerBus.plug(test1);
 
+        EventStream<Float> test4 = JBacon.sequentially(500, TimeUnit.MILLISECONDS, 3.0f);
+        test4.onValue(new F2<Float, Boolean, String>() {
+            @Override
+            public String run(Float val1, Boolean val2) {
+                System.out.println("ES1-Sequentially: " + val1);
+                return Event.more;
+            }
+        });
+        EventStream<Float> test5 = JBacon.sequentially(500, TimeUnit.MILLISECONDS, 1.0f, 2.0f);
+        test5.onValue(new F2<Float, Boolean, String>() {
+            @Override
+            public String run(Float val1, Boolean val2) {
+                System.out.println("ES2-Sequentially: " + val1);
+                return Event.more;
+            }
+        });
+
         try {
             Thread.sleep(1600);
         } catch (InterruptedException e) {
