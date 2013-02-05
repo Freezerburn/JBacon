@@ -51,9 +51,9 @@ public class EventStream<T> implements Observable<T> {
         return Event.pass;
     }
 
-    protected void distributeFail() {
+    protected void distributeFail(final boolean end) {
         if(parent != null) {
-            parent.distributeFail();
+            parent.distributeFail(end);
         }
     }
 
@@ -158,12 +158,12 @@ public class EventStream<T> implements Observable<T> {
         final String todo = this.onDistribute(val);
         // *** END HANDLING
         if(val.isEnd() || todo.equals(Event.noMore)) {
-            this.distributeFail();
+            this.distributeFail(true);
             this.endStream(null);
             return Event.noMore;
         }
         else if(todo.equals(Event.noPass)) {
-            this.distributeFail();
+            this.distributeFail(false);
             return todo;
         }
         // *** VALUE HANDLING
@@ -386,5 +386,26 @@ public class EventStream<T> implements Observable<T> {
             this.returnedStreams.push(ret);
         }
         return ret;
+    }
+
+    @Override
+    public EventStream<T> take(final int num) {
+        final EventStream<T> ret = new EventStream<T>() {
+            private int times = 0;
+
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(times >= num) {
+                    return Event.noMore;
+                }
+                times++;
+                return Event.pass;
+            }
+        };
+        ret.parent = this;
+        synchronized (this.streamLock) {
+            this.returnedStreams.push(ret);
+        }
+        return ret;  //To change body of implemented methods use File | Settings | File Templates.
     }
 }

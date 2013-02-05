@@ -153,10 +153,16 @@ public class JBacon {
         final EventStream<T> ret = new EventStream<T>() {
             private boolean canTake = false;
             private boolean skipNext = false;
+            private boolean ended = false;
 
             @Override
-            protected void distributeFail() {
-                skipNext = true;
+            protected void distributeFail(final boolean end) {
+                if(end) {
+                    ended = true;
+                }
+                else {
+                    skipNext = true;
+                }
             }
 
             @Override
@@ -168,6 +174,10 @@ public class JBacon {
                 // Need to find a way to not put something into the queue if something was not
                 // delivered, or just have a timeout. Timeout will "solve" it easily and quickly,
                 // but not fix the root problem.
+                if(ended) {
+                    this.distribute(new Event.End<T>());
+                    return;
+                }
                 if(vals.length > 0 && !skipNext) {
                     try {
                         queue.put(vals[0]);
@@ -188,6 +198,10 @@ public class JBacon {
                         }
                     };
                     this.distribute(next);
+                    if(ended) {
+                        this.distribute(new Event.End<T>());
+                        return;
+                    }
                     try {
                         if(!skipNext) {
                             queue.put(vals[i]);
@@ -197,9 +211,7 @@ public class JBacon {
                     skipNext = false;
                 }
                 if(vals.length > 0) {
-                    System.out.println(1);
                     this.distribute(new Event.End<T>());
-                    System.out.println(2);
                 }
                 this.canTake = false;
             }
