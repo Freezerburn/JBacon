@@ -339,6 +339,37 @@ public class JBacon {
         return ret;
     }
 
+    public static <T> EventStream<T> interval(final long delay, final TimeUnit timeUnit, final T val) {
+        final EventStream<T> ret = new EventStream<T>() {
+            boolean canDistribute = false;
+            Event<T> firstEvent = new Event.Initial<T>(val);
+            @Override
+            protected void onSubscribe() {
+                JBacon.intervalScheduler.scheduleAtFixedRate(new Runnable() {
+                    @Override
+                    public void run() {
+                        canDistribute = true;
+                        if(firstEvent != null) {
+                            distribute(firstEvent);
+                            firstEvent = null;
+                        }
+                        else {
+                            distribute(new Event.Next<T>(val));
+                        }
+                        canDistribute = false;
+                    }
+                }, delay, delay, timeUnit);
+            }
+
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(canDistribute) return Event.pass;
+                return Event.noPass;
+            }
+        };
+        return ret;
+    }
+
     /**
      * For use with <code>JBacon.interval(...).map(intervalInMillis)<code/>. Converts all events from
      * an interval EventStream to milliseconds.
@@ -393,15 +424,13 @@ public class JBacon {
                                 long interval = System.nanoTime() - lastTime;
                                 lastTime = System.nanoTime();
                                 cur++;
-                                if(cur == vals.length) {
+                                T next = vals[cur];
+                                distribute(new Event.Next<T>(next));
+                                if(cur == vals.length - 1) {
+                                    Thread.yield();
                                     distribute(new Event.End());
-                                    canTake = false;
                                 }
-                                else {
-                                    T next = vals[cur];
-                                    distribute(new Event.Next<T>(next));
-                                    canTake = false;
-                                }
+                                canTake = false;
                             }
                         }
                     }
