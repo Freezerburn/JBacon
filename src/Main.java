@@ -2,7 +2,6 @@ import jbacon.JBacon;
 import jbacon.interfaces.F1;
 import jbacon.interfaces.F2;
 import jbacon.types.Bus;
-import jbacon.types.Event;
 import jbacon.types.EventStream;
 
 import java.util.ArrayList;
@@ -28,9 +27,9 @@ public class Main {
             public String run(Float val, Boolean isEnd) throws Exception {
                 System.out.println("once.onValue: " + val + " end? " + isEnd);
                 if (isEnd) {
-                    return Event.noMore;
+                    return JBacon.noMore;
                 }
-                return Event.more;
+                return JBacon.more;
             }
         });
 
@@ -39,26 +38,26 @@ public class Main {
             protected int numTimes = 0;
             @Override
             public String run(Long val1, Boolean val2) throws Exception {
-                if(val2) return Event.noMore;
+                if(val2) return JBacon.noMore;
                 System.out.println("Interval received " + val1);
                 System.out.println(TimeUnit.MILLISECONDS.convert(val1, TimeUnit.NANOSECONDS));
                 numTimes++;
                 if(numTimes > 4) {
                     System.out.println("Interval limit hit, ending");
-                    return Event.noMore;
+                    return JBacon.noMore;
                 }
-                return Event.more;
+                return JBacon.more;
             }
         });
         test1.map(JBacon.intervalInSeconds).onValue(new F2<Float, Boolean, String>() {
             protected int numTimes = 0;
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
-                if(val2) return Event.noMore;
+                if(val2) return JBacon.noMore;
                 System.out.println("Interval in sec: " + val1);
                 numTimes++;
-                if(numTimes > 4) return Event.noMore;
-                return Event.more;
+                if(numTimes > 4) return JBacon.noMore;
+                return JBacon.more;
             }
         });
 
@@ -68,7 +67,7 @@ public class Main {
             @Override
             public String run(Long val1, Boolean val2) throws Exception {
                 System.out.println("FromArray empty: val=" + val1 + ", isEnd=" + val2);
-                return Event.more;
+                return JBacon.more;
             }
         });
         System.out.println("AFTER FROMARRAY EMPTY");
@@ -79,10 +78,10 @@ public class Main {
             public String run(Long val1, Boolean val2) throws Exception {
                 if (val2) {
                     System.out.println("FromArray non-empty: " + vals);
-                    return Event.noMore;
+                    return JBacon.noMore;
                 } else {
                     vals.add(val1);
-                    return Event.more;
+                    return JBacon.more;
                 }
 //                System.out.println("FromArray non-empty: val=" + val1 + ", isEnd=" + val2);
             }
@@ -97,7 +96,7 @@ public class Main {
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
                 System.out.println("ES1-Sequentially: " + val1);
-                return Event.more;
+                return JBacon.more;
             }
         });
         EventStream<Float> test5 = JBacon.sequentially(500, TimeUnit.MILLISECONDS, 1.0f, 2.0f);
@@ -105,7 +104,7 @@ public class Main {
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
                 System.out.println("ES2-Sequentially: " + val1);
-                return Event.more;
+                return JBacon.more;
             }
         });
 
@@ -115,14 +114,14 @@ public class Main {
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
                 System.out.println("ES1-Repeatedly: " + val1);
-                return Event.more;
+                return JBacon.more;
             }
         });
         test7.onValue(new F2<Float, Boolean, String>() {
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
                 System.out.println("ES2-Repeatedly: " + val1);
-                return Event.more;
+                return JBacon.more;
             }
         });
         test7.takeWhile(new F1<Float, Boolean>() {
@@ -135,21 +134,21 @@ public class Main {
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
                 System.out.println("takeWhile.onValue: " + val1 + ", " + val2);
-                return Event.more;
+                return JBacon.more;
             }
         });
         test7.takeUntil(test6.delay(1000, TimeUnit.MILLISECONDS)).onValue(new F2<Float, Boolean, String>() {
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
                 System.out.println("takeUntil: " + val1 + ", " + val2);
-                return Event.more;
+                return JBacon.more;
             }
         });
         test7.throttle(100, TimeUnit.MILLISECONDS).onValue(new F2<Float, Boolean, String>() {
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
                 System.out.println("throttle.onValue: " + val1 + ", " + val2);
-                return Event.more;
+                return JBacon.more;
             }
         });
 
@@ -157,7 +156,7 @@ public class Main {
             @Override
             public String run(Object val1, Boolean val2) throws Exception {
                 System.out.println("Never: " + val1 + ", " + val2);
-                return Event.more;
+                return JBacon.more;
             }
         });
 
@@ -165,7 +164,7 @@ public class Main {
             @Override
             public String run(Integer val1, Boolean val2) throws Exception {
                 System.out.println("Later: " + val1);
-                return Event.noMore;
+                return JBacon.noMore;
             }
         });
 
@@ -177,12 +176,12 @@ public class Main {
             public String run(Long val1, Boolean val2) throws Exception {
                 if(val2) {
                     System.out.println("take.onValue: " + test);
-                    return Event.noMore;
+                    return JBacon.noMore;
                 }
                 else {
                     test.add(val1);
                 }
-                return Event.more;
+                return JBacon.more;
             }
         });
         test9.skip(3).onValue(new F2<Long, Boolean, String>() {
@@ -192,11 +191,11 @@ public class Main {
             public String run(Long val1, Boolean val2) throws Exception {
                 if (val2) {
                     System.out.println("skip.onValue: " + test);
-                    return Event.noMore;
+                    return JBacon.noMore;
                 } else {
                     test.add(val1);
                 }
-                return Event.more;
+                return JBacon.more;
             }
         });
 

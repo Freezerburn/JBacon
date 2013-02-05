@@ -49,7 +49,7 @@ public class Bus<T> extends EventStream<T> {
                     @Override
                     public void run() {
                         String ret = stream.distribute(e);
-                        if(ret.equals(Event.noMore)) {
+                        if(ret.equals(JBacon.noMore)) {
                             Bus.this.unplug(stream);
                         }
                     }

@@ -1,15 +1,18 @@
 package testing;
 
 import jbacon.JBacon;
+import jbacon.interfaces.F1;
 import jbacon.interfaces.F2;
-import jbacon.types.Event;
 import jbacon.types.EventStream;
 import junit.framework.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static junit.framework.Assert.*;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -44,9 +47,9 @@ public class JBaconStreamsTest {
                     assertFalse("Later - isEnd", val2);
                     assertTrue("Later - timing", expectedTime > curTime);
                     incomplete[0] = false;
-                    return Event.more;
+                    return JBacon.more;
                 }
-                return Event.noMore;
+                return JBacon.noMore;
             }
         });
         while(incomplete[0]) {
@@ -73,7 +76,7 @@ public class JBaconStreamsTest {
                     assertFalse("End came too soon", cur < 2);
                     assertNull("Still have value when ended", val1);
                     incomplete[0] = false;
-                    return Event.noMore;
+                    return JBacon.noMore;
                 }
                 if(cur == 0) {
                     assertEquals("Sequentially - first val", val1, "lol");
@@ -87,7 +90,7 @@ public class JBaconStreamsTest {
                     fail("Too many values sent");
                 }
                 cur++;
-                return Event.more;  //To change body of implemented methods use File | Settings | File Templates.
+                return JBacon.more;  //To change body of implemented methods use File | Settings | File Templates.
             }
         });
         while(incomplete[0]) {
@@ -109,14 +112,68 @@ public class JBaconStreamsTest {
                     assertNull(val1);
                     assertTrue("Interval - ended", val2);
                     incomplete[0] = false;
-                    return Event.noMore;
+                    return JBacon.noMore;
                 }
                 assertEquals("Interval - val " + cur, val1, "lol");
                 assertFalse("Interval - not ended", val2);
                 assertTrue("Interval - timing " + cur, expected > curTime);
                 cur++;
                 expected = System.nanoTime() + TimeUnit.NANOSECONDS.convert(110, TimeUnit.MILLISECONDS);
-                return Event.more;
+                return JBacon.more;
+            }
+        });
+        while(incomplete[0]) {
+            Thread.yield();
+        }
+    }
+
+    @Test(timeout = 300)
+    public void testFromCallback() {
+        final boolean[] incomplete = new boolean[]{true};
+        final Long desiredValue = 10L;
+        final F1<F1<Long, Void>, Long> func = new F1<F1<Long, Void>, Long>() {
+            @Override
+            public Long run(F1<Long, Void> val) throws Exception {
+                val.run(desiredValue);
+                return null;
+            }
+        };
+        JBacon.fromCallback(func);
+        JBacon.fromCallback(func).onValue(new F2<Long, Boolean, String>() {
+            boolean gotValue = false;
+            @Override
+            public String run(Long val1, Boolean val2) throws Exception {
+                if(val2) {
+                    assertTrue("FromCallback - got value", gotValue);
+                    incomplete[0] = false;
+                    return JBacon.noMore;
+                }
+                assertFalse(val2);
+                assertEquals("FromCallback - value", val1, desiredValue);
+                gotValue = true;
+                return JBacon.more;
+            }
+        });
+        while(incomplete[0]) {
+            Thread.yield();
+        }
+    }
+
+    @Test(timeout = 100)
+    public void testFromArray1() {
+        final boolean[] incomplete = new boolean[]{true};
+        JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f);
+        JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).take(4).onValue(new F2<Float, Boolean, String>() {
+            ArrayList<Float> list = new ArrayList<Float>(4);
+            @Override
+            public String run(Float val1, Boolean val2) throws Exception {
+                if(val2) {
+                    incomplete[0] = false;
+                    assertTrue("FromArray1 - correct list", Arrays.deepEquals(list.toArray(), new Float[]{1.0f, 2.0f, 3.0f, 4.0f}));
+                    return JBacon.noMore;
+                }
+                list.add(val1);
+                return JBacon.more;  //To change body of implemented methods use File | Settings | File Templates.
             }
         });
         while(incomplete[0]) {

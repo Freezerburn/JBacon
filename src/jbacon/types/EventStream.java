@@ -51,7 +51,7 @@ public class EventStream<T> implements Observable<T> {
     }
 
     protected String onDistribute(final Event<T> event) {
-        return Event.pass;
+        return JBacon.pass;
     }
 
     protected void distributeFail(final boolean end) {
@@ -66,7 +66,7 @@ public class EventStream<T> implements Observable<T> {
                 @Override
                 public Object call() throws Exception {
                     final String ret = subscriber.run(val);
-                    if(ret.equals(Event.noMore)) {
+                    if(ret.equals(JBacon.noMore)) {
                         System.out.println(uid + ": Unsubscribing event listener " + subscriber);
                         EventStream.this.unsubscribe(subscriber);
                     }
@@ -84,7 +84,7 @@ public class EventStream<T> implements Observable<T> {
                 public Object call() throws Exception {
                     try {
                         final String ret = subscriber.run(val.isEnd() ? null : val.getValue(), val.isEnd());
-                        if(ret.equals(Event.noMore)) {
+                        if(ret.equals(JBacon.noMore)) {
                             System.out.println(uid + ": Unsubscribing value listener " + subscriber);
                             EventStream.this.onValueUnsubscribe(subscriber);
                         }
@@ -110,7 +110,7 @@ public class EventStream<T> implements Observable<T> {
 //                @Override
 //                public void run() {
                     final String ret = stream.distribute(val);
-                    if(ret.equals(Event.noMore)) {
+                    if(ret.equals(JBacon.noMore)) {
                         System.out.println(uid + ": Unsubscribing stream " + stream.uid);
                         EventStream.this.streamUnsubscribe(stream);
                     }
@@ -125,7 +125,7 @@ public class EventStream<T> implements Observable<T> {
                 @Override
                 public Object call() throws Exception {
                     final Event.ErrRet<T> ret = subscriber.run(val.getError());
-                    if(ret.eventStatus.equals(Event.noMore)) {
+                    if(ret.eventStatus.equals(JBacon.noMore)) {
                         System.out.println(uid + ": Unsubscribing error listener " + subscriber);
                         EventStream.this.errorUnsubscribe(subscriber);
                     }
@@ -166,16 +166,16 @@ public class EventStream<T> implements Observable<T> {
     }
 
     protected String distribute(final Event<T> val) {
-        if(this.ended) return Event.noMore;
+        if(this.ended) return JBacon.noMore;
 
         final String todo = this.onDistribute(val);
         // *** END HANDLING
-        if(val.isEnd() || todo.equals(Event.noMore)) {
+        if(val.isEnd() || todo.equals(JBacon.noMore)) {
             this.distributeFail(true);
             this.endStream(null);
-            return Event.noMore;
+            return JBacon.noMore;
         }
-        else if(todo.equals(Event.noPass)) {
+        else if(todo.equals(JBacon.noPass)) {
             this.distributeFail(false);
             return todo;
         }
@@ -204,7 +204,7 @@ public class EventStream<T> implements Observable<T> {
             }
         }
 
-        return Event.more;
+        return JBacon.more;
     }
 
     public boolean isEnded() {
@@ -358,9 +358,9 @@ public class EventStream<T> implements Observable<T> {
             @Override
             protected String onDistribute(final Event<T> event) {
                 if(shouldAllow) {
-                    return Event.pass;
+                    return JBacon.pass;
                 }
-                return Event.noPass;
+                return JBacon.noPass;
             }
         };
         ret.parent = this;
@@ -384,7 +384,7 @@ public class EventStream<T> implements Observable<T> {
                         e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                     }
                 }
-                return Event.more;
+                return JBacon.more;
             }
         };
         ret.parent = this;
@@ -402,16 +402,16 @@ public class EventStream<T> implements Observable<T> {
                 if(event.hasValue()) {
                     try {
                         if(func.run(event.getValue())) {
-                            return Event.pass;
+                            return JBacon.pass;
                         }
                         else {
-                            return Event.noMore;
+                            return JBacon.noMore;
                         }
                     } catch (Exception e) {
                         e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                     }
                 }
-                return Event.more;
+                return JBacon.more;
             }
         };
         ret.parent = this;
@@ -429,10 +429,10 @@ public class EventStream<T> implements Observable<T> {
             @Override
             protected String onDistribute(final Event<T> event) {
                 if(times >= num) {
-                    return Event.noMore;
+                    return JBacon.noMore;
                 }
                 times++;
-                return Event.pass;
+                return JBacon.pass;
             }
         };
         ret.parent = this;
@@ -457,9 +457,9 @@ public class EventStream<T> implements Observable<T> {
                     synchronized (happenLock) {
                         nextHappened[0] = true;
                     }
-                    return Event.noMore;
+                    return JBacon.noMore;
                 }
-                return Event.more;
+                return JBacon.more;
             }
         });
         final EventStream<T> ret = new EventStream<T>() {
@@ -467,10 +467,10 @@ public class EventStream<T> implements Observable<T> {
             public String onDistribute(final Event<T> event) {
                 synchronized (happenLock) {
                     if(nextHappened[0]) {
-                        return Event.noMore;
+                        return JBacon.noMore;
                     }
                 }
-                return Event.more;
+                return JBacon.more;
             }
         };
         ret.parent = this;
@@ -488,10 +488,10 @@ public class EventStream<T> implements Observable<T> {
             @Override
             protected String onDistribute(final Event<T> event) {
                 if(times >= num) {
-                    return Event.pass;
+                    return JBacon.pass;
                 }
                 times++;
-                return Event.noPass;
+                return JBacon.noPass;
             }
         };
         ret.parent = this;
@@ -523,9 +523,9 @@ public class EventStream<T> implements Observable<T> {
             protected String onDistribute(final Event<T> event) {
                 if(this.whenDelayStop > 0 && System.nanoTime() > this.whenDelayStop) {
                     System.out.println("delay distributing now");
-                    return Event.pass;
+                    return JBacon.pass;
                 }
-                return Event.noPass;
+                return JBacon.noPass;
             }
         };
         ret.parent = this;
@@ -543,7 +543,7 @@ public class EventStream<T> implements Observable<T> {
             @Override
             protected String onDistribute(final Event<T> event) {
                 if(canDistribute) {
-                    return Event.pass;
+                    return JBacon.pass;
                 }
                 System.out.println("Scheduling event at " + TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS));
                 JBacon.intervalScheduler.schedule(new Runnable() {
@@ -557,7 +557,7 @@ public class EventStream<T> implements Observable<T> {
                         }
                     }
                 }, delay, timeUnit);
-                return Event.noPass;
+                return JBacon.noPass;
             }
         };
         ret.parent = this;

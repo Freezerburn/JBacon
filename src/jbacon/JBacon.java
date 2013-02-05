@@ -23,6 +23,10 @@ import java.util.concurrent.*;
  * Time: 1:46 AM
  */
 public class JBacon {
+    public static final String noMore = "veggies!";
+    public static final String more = "moar bacon!";
+    public static final String pass = "good bacon!";
+    public static final String noPass = "bad bacon!";
     protected static final int numThreads = 3;
     public static final ExecutorService threading = Executors.newFixedThreadPool(numThreads);
     public static final ScheduledExecutorService intervalScheduler = Executors.newScheduledThreadPool(1);
@@ -162,7 +166,7 @@ public class JBacon {
 
             @Override
             protected String onDistribute(final Event<T> event) {
-                return (this.canDistribute && !event.isEnd()) ? Event.pass : Event.noPass;
+                return (this.canDistribute && !event.isEnd()) ? JBacon.pass : JBacon.noPass;
             }
         };
         return ret;
@@ -260,9 +264,9 @@ public class JBacon {
             @Override
             protected String onDistribute(final Event<T> event) {
                 if(this.canTake) {
-                    return Event.pass;
+                    return JBacon.pass;
                 }
-                return Event.noPass;
+                return JBacon.noPass;
             }
         };
         return ret;
@@ -331,9 +335,9 @@ public class JBacon {
                     this.timer.cancel();
                 }
                 if(this.canTake) {
-                    return Event.pass;
+                    return JBacon.pass;
                 }
-                return Event.noPass;
+                return JBacon.noPass;
             }
         };
         return ret;
@@ -363,8 +367,8 @@ public class JBacon {
 
             @Override
             protected String onDistribute(final Event<T> event) {
-                if(canDistribute) return Event.pass;
-                return Event.noPass;
+                if(canDistribute) return JBacon.pass;
+                return JBacon.noPass;
             }
         };
         return ret;
@@ -449,12 +453,12 @@ public class JBacon {
             protected String onDistribute(final Event<T> event) {
                 if(event.isEnd()) {
                     this.timer.cancel();
-                    return Event.noMore;
+                    return JBacon.noMore;
                 }
                 if(this.canTake) {
-                    return Event.pass;
+                    return JBacon.pass;
                 }
-                return Event.noPass;
+                return JBacon.noPass;
             }
         };
         return ret;
@@ -515,9 +519,9 @@ public class JBacon {
                     this.timer.cancel();
                 }
                 if(this.canTake) {
-                    return Event.pass;
+                    return JBacon.pass;
                 }
-                return Event.noPass;
+                return JBacon.noPass;
             }
         };
         return ret;
@@ -532,7 +536,7 @@ public class JBacon {
 
             @Override
             protected String onDistribute(final Event<T> event) {
-                return Event.noMore;
+                return JBacon.noMore;
             }
         };
     }
@@ -571,7 +575,29 @@ public class JBacon {
 
             @Override
             protected String onDistribute(final Event<T> event) {
-                return (this.canDistribute && !event.isEnd()) ? Event.pass : Event.noPass;
+                return (this.canDistribute && !event.isEnd()) ? JBacon.pass : JBacon.noPass;
+            }
+        };
+        return ret;
+    }
+
+    public static <T> EventStream<T> fromCallback(final F1<F1<T, Void>, T> callback) {
+        final EventStream<T> ret = new EventStream<T>() {
+            @Override
+            protected void onSubscribe() {
+                try {
+                    callback.run(new F1<T, Void>() {
+                        @Override
+                        public Void run(T val) throws Exception {
+                            distribute(new Event.Initial<T>(val));
+                            Thread.yield();
+                            distribute(new Event.End<T>());
+                            return null;
+                        }
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         };
         return ret;
