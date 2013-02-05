@@ -125,6 +125,19 @@ public class Main {
                 return Event.more;
             }
         });
+        test7.takeWhile(new F1<Float, Boolean>() {
+            @Override
+            public Boolean run(Float val) {
+                System.out.println("takeWhile: " + val + ", " + (val < 6.0f));
+                return val < 6.0f;
+            }
+        }).onValue(new F2<Float, Boolean, String>() {
+            @Override
+            public String run(Float val1, Boolean val2) {
+                System.out.println("takeWhile.onValue: " + val1 + ", " + val2);
+                return Event.more;
+            }
+        });
 
         JBacon.never().onValue(new F2<Object, Boolean, String>() {
             @Override

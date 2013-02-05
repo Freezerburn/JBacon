@@ -57,4 +57,6 @@ public interface Observable<T> {
 //     * @return
 //     */
 //    public EventStream<T> filter(Property<Boolean> p);
+
+    public EventStream<T> takeWhile(F1<T, Boolean> func);
 }

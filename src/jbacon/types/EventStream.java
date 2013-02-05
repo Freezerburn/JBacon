@@ -6,6 +6,7 @@ import jbacon.interfaces.F1;
 import jbacon.interfaces.F2;
 import jbacon.interfaces.Observable;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 
 /**
@@ -32,6 +33,7 @@ public class EventStream<T> implements Observable<T> {
 
     protected final Object streamLock = new Object();
     protected LinkedList<EventStream<T>> returnedStreams = new LinkedList<EventStream<T>>();
+    protected ArrayList<EventStream<T>> unsubscribeLater = new ArrayList<EventStream<T>>(50);
 
     // ***
     // The following are several methods that can be used to influence the way an EventStream works
@@ -86,6 +88,12 @@ public class EventStream<T> implements Observable<T> {
     }
 
     protected void streamTake(final Event<T> val) {
+        for(final EventStream<T> toRemove : this.unsubscribeLater) {
+            synchronized (this.streamLock) {
+                this.returnedStreams.remove(toRemove);
+            }
+        }
+        this.unsubscribeLater.clear();
         for(final EventStream<T> stream : this.returnedStreams) {
 //            JBacon.threading.submit(new Runnable() {
 //                @Override
@@ -151,7 +159,7 @@ public class EventStream<T> implements Observable<T> {
         // *** END HANDLING
         if(val.isEnd() || todo.equals(Event.noMore)) {
             this.distributeFail();
-            this.endStream(val);
+            this.endStream(null);
             return Event.noMore;
         }
         else if(todo.equals(Event.noPass)) {
@@ -244,9 +252,10 @@ public class EventStream<T> implements Observable<T> {
 
     private void streamUnsubscribe(final EventStream<T> stream) {
         if(this.ended) return;
-        synchronized (this.streamLock) {
-            this.returnedStreams.remove(stream);
-        }
+        this.unsubscribeLater.add(stream);
+//        synchronized (this.streamLock) {
+//            this.returnedStreams.remove(stream);
+//        }
     }
 
     @Override
@@ -344,6 +353,29 @@ public class EventStream<T> implements Observable<T> {
                 if(event.hasValue()) {
                     if(func.run(event.val)) {
                         return super.distribute(event);
+                    }
+                }
+                return Event.more;
+            }
+        };
+        ret.parent = this;
+        synchronized (this.streamLock) {
+            this.returnedStreams.push(ret);
+        }
+        return ret;
+    }
+
+    @Override
+    public EventStream<T> takeWhile(final F1<T, Boolean> func) {
+        final EventStream<T> ret = new EventStream<T>() {
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(event.hasValue()) {
+                    if(func.run(event.getValue())) {
+                        return Event.pass;
+                    }
+                    else {
+                        return Event.noMore;
                     }
                 }
                 return Event.more;
