@@ -3,6 +3,8 @@ package jbacon.interfaces;
 import jbacon.types.EventStream;
 import jbacon.types.Property;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Created with IntelliJ IDEA.
  * User: freezerburn
@@ -59,7 +61,9 @@ public interface Observable<T> {
 //    public EventStream<T> filter(Property<Boolean> p);
 
     public EventStream<T> takeWhile(F1<T, Boolean> func);
-
     public EventStream<T> take(int num);
+    public <K> EventStream<T> takeUntil(EventStream<K> stream);
     public EventStream<T> skip(int num);
+
+    public EventStream<T> delay(long delay, TimeUnit timeUnit);
 }

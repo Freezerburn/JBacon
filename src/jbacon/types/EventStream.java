@@ -8,6 +8,7 @@ import jbacon.interfaces.Observable;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created with IntelliJ IDEA.
@@ -410,6 +411,44 @@ public class EventStream<T> implements Observable<T> {
     }
 
     @Override
+    public <K> EventStream<T> takeUntil(final EventStream<K> stream) {
+        // Chance of two threads trying to access nextHappened at the same time, so we need
+        // a lock for it.
+        final Object happenLock = new Object();
+        // Using an array for a final-yet-not-final-value so that it can be used in closures
+        // is my favorite hack :D
+        final boolean[] nextHappened = new boolean[]{false};
+        stream.subscribe(new F1<Event<K>, String>() {
+            @Override
+            public String run(Event<K> val) {
+                if(val.isNext()) {
+                    synchronized (happenLock) {
+                        nextHappened[0] = true;
+                    }
+                    return Event.noMore;
+                }
+                return Event.more;
+            }
+        });
+        final EventStream<T> ret = new EventStream<T>() {
+            @Override
+            public String onDistribute(final Event<T> event) {
+                synchronized (happenLock) {
+                    if(nextHappened[0]) {
+                        return Event.noMore;
+                    }
+                }
+                return Event.more;
+            }
+        };
+        ret.parent = this;
+        synchronized (this.streamLock) {
+            this.returnedStreams.push(ret);
+        }
+        return ret;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
     public EventStream<T> skip(final int num) {
         final EventStream<T> ret = new EventStream<T>() {
             private int times = 0;
@@ -427,6 +466,40 @@ public class EventStream<T> implements Observable<T> {
         synchronized (this.streamLock) {
             this.returnedStreams.push(ret);
         }
-        return ret;  //To change body of implemented methods use File | Settings | File Templates.
+        return ret;
+    }
+
+    /**
+     * Rejects all Events that happen until the given delay has passed.
+     * @param delay The amount of delay expressed in TimeUnit time.
+     * @param timeUnit The TimeUnit type of the passed-in delay.
+     * @return An EventStream that rejects all Events for delay time.
+     */
+    @Override
+    public EventStream<T> delay(long delay, TimeUnit timeUnit) {
+        final long actualDelay = TimeUnit.NANOSECONDS.convert(delay, timeUnit);
+        final EventStream<T> ret = new EventStream<T>() {
+            long whenDelayStop = -1;
+            ArrayList<T> buffered = new ArrayList<T>();
+
+            @Override
+            protected void onSubscribe() {
+                this.whenDelayStop = System.nanoTime() + actualDelay;
+            }
+
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(this.whenDelayStop > 0 && System.nanoTime() > this.whenDelayStop) {
+                    System.out.println("delay distributing now");
+                    return Event.pass;
+                }
+                return Event.noPass;
+            }
+        };
+        ret.parent = this;
+        synchronized (this.streamLock) {
+            this.returnedStreams.push(ret);
+        }
+        return ret;
     }
 }

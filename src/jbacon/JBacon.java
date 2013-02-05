@@ -127,6 +127,11 @@ public class JBacon {
         return ret;
     }
 
+    /*
+    Thar be dragons here, edit with care! I've had to put in a few different hacks to account for
+    different types of subscriber streams, so screwing around with it can have bad results. Possibly
+    freezing your program entirely.
+     */
     /**
      * Creates an EventStream that will pass all parameters to the first subscriber, then immediately
      * end. <br/>
@@ -169,11 +174,6 @@ public class JBacon {
             protected void onSubscribe() {
                 this.canTake = true;
                 this.distribute(initial);
-                // BUG: This will pause execution if for any reason the distribute method does not
-                // deliver the event. For example: stream.filter(false)
-                // Need to find a way to not put something into the queue if something was not
-                // delivered, or just have a timeout. Timeout will "solve" it easily and quickly,
-                // but not fix the root problem.
                 if(ended) {
                     this.distribute(new Event.End<T>());
                     return;

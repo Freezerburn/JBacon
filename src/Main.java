@@ -138,6 +138,13 @@ public class Main {
                 return Event.more;
             }
         });
+        test7.takeUntil(test6.delay(1000, TimeUnit.MILLISECONDS)).onValue(new F2<Float, Boolean, String>() {
+            @Override
+            public String run(Float val1, Boolean val2) {
+                System.out.println("takeUntil: " + val1 + ", " + val2);
+                return Event.more;
+            }
+        });
 
         JBacon.never().onValue(new F2<Object, Boolean, String>() {
             @Override
@@ -173,13 +180,13 @@ public class Main {
         });
         test9.skip(3).onValue(new F2<Long, Boolean, String>() {
             ArrayList<Long> test = new ArrayList<Long>();
+
             @Override
             public String run(Long val1, Boolean val2) {
-                if(val2) {
+                if (val2) {
                     System.out.println("skip.onValue: " + test);
                     return Event.noMore;
-                }
-                else {
+                } else {
                     test.add(val1);
                 }
                 return Event.more;
