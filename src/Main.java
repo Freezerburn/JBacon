@@ -156,12 +156,27 @@ public class Main {
         });
 
         EventStream<Long> test8 = JBacon.fromArray(10L, 20L, 30L, 40L, 50L, 60L, 70L, 80L, 90L, 100L);
+        EventStream<Long> test9 = JBacon.fromArray(10L, 20L, 30L, 40L, 50L, 60L, 70L, 80L, 90L, 100L);
         test8.take(3).onValue(new F2<Long, Boolean, String>() {
             ArrayList<Long> test = new ArrayList<Long>();
             @Override
             public String run(Long val1, Boolean val2) {
                 if(val2) {
                     System.out.println("take.onValue: " + test);
+                    return Event.noMore;
+                }
+                else {
+                    test.add(val1);
+                }
+                return Event.more;
+            }
+        });
+        test9.skip(3).onValue(new F2<Long, Boolean, String>() {
+            ArrayList<Long> test = new ArrayList<Long>();
+            @Override
+            public String run(Long val1, Boolean val2) {
+                if(val2) {
+                    System.out.println("skip.onValue: " + test);
                     return Event.noMore;
                 }
                 else {

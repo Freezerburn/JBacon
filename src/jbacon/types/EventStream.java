@@ -408,4 +408,25 @@ public class EventStream<T> implements Observable<T> {
         }
         return ret;  //To change body of implemented methods use File | Settings | File Templates.
     }
+
+    @Override
+    public EventStream<T> skip(final int num) {
+        final EventStream<T> ret = new EventStream<T>() {
+            private int times = 0;
+
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(times >= num) {
+                    return Event.pass;
+                }
+                times++;
+                return Event.noPass;
+            }
+        };
+        ret.parent = this;
+        synchronized (this.streamLock) {
+            this.returnedStreams.push(ret);
+        }
+        return ret;  //To change body of implemented methods use File | Settings | File Templates.
+    }
 }

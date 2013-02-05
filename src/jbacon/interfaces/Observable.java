@@ -61,4 +61,5 @@ public interface Observable<T> {
     public EventStream<T> takeWhile(F1<T, Boolean> func);
 
     public EventStream<T> take(int num);
+    public EventStream<T> skip(int num);
 }
