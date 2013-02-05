@@ -138,7 +138,6 @@ public class JBaconStreamsTest {
                 return null;
             }
         };
-        JBacon.fromCallback(func);
         JBacon.fromCallback(func).onValue(new F2<Long, Boolean, String>() {
             boolean gotValue = false;
             @Override
@@ -160,16 +159,15 @@ public class JBaconStreamsTest {
     }
 
     @Test(timeout = 100)
-    public void testFromArray1() {
+    public void testFromArrayTake() {
         final boolean[] incomplete = new boolean[]{true};
-        JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f);
         JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).take(4).onValue(new F2<Float, Boolean, String>() {
             ArrayList<Float> list = new ArrayList<Float>(4);
             @Override
             public String run(Float val1, Boolean val2) throws Exception {
                 if(val2) {
                     incomplete[0] = false;
-                    assertTrue("FromArray1 - correct list", Arrays.deepEquals(list.toArray(), new Float[]{1.0f, 2.0f, 3.0f, 4.0f}));
+                    assertTrue("FromArrayTake - correct list", Arrays.deepEquals(list.toArray(), new Float[]{1.0f, 2.0f, 3.0f, 4.0f}));
                     return JBacon.noMore;
                 }
                 list.add(val1);
@@ -177,6 +175,46 @@ public class JBaconStreamsTest {
             }
         });
         while(incomplete[0]) {
+            Thread.yield();
+        }
+    }
+
+    @Test(timeout = 100)
+    public void testFromArrayFilter() {
+        final boolean[] incomplete = new boolean[]{true, true};
+        JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).filter(true).onValue(new F2<Float, Boolean, String>() {
+            ArrayList<Float> list = new ArrayList<Float>(8);
+
+            @Override
+            public String run(Float val1, Boolean val2) throws Exception {
+                if (val2) {
+                    assertTrue("FromArrayFilter - true", Arrays.deepEquals(
+                            list.toArray(),
+                            new Float[]{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f}));
+                    incomplete[0] = false;
+                    return JBacon.noMore;
+                }
+                list.add(val1);
+                return JBacon.more;  //To change body of implemented methods use File | Settings | File Templates.
+            }
+        });
+        JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).filter(false).onValue(new F2<Float, Boolean, String>() {
+            ArrayList<Float> list = new ArrayList<Float>(0);
+
+            @Override
+            public String run(Float val1, Boolean val2) throws Exception {
+                if (val2) {
+                    assertTrue("FromArrayFilter - true", Arrays.deepEquals(
+                            list.toArray(),
+                            new Float[]{}));
+                    incomplete[1] = false;
+                    return JBacon.noMore;
+                }
+                fail("False filter produced a value");
+                return JBacon.more;  //To change body of implemented methods use File | Settings | File Templates.
+            }
+        });
+        while(incomplete[0] || incomplete[1]) {
             Thread.yield();
         }
     }
