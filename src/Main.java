@@ -145,6 +145,13 @@ public class Main {
                 return Event.more;
             }
         });
+        test7.throttle(100, TimeUnit.MILLISECONDS).onValue(new F2<Float, Boolean, String>() {
+            @Override
+            public String run(Float val1, Boolean val2) {
+                System.out.println("throttle.onValue: " + val1 + ", " + val2);
+                return Event.more;
+            }
+        });
 
         JBacon.never().onValue(new F2<Object, Boolean, String>() {
             @Override

@@ -6,7 +6,6 @@ import jbacon.interfaces.Streamable;
 import jbacon.types.Event;
 import jbacon.types.EventStream;
 
-import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.*;
 
@@ -25,8 +24,7 @@ import java.util.concurrent.*;
 public class JBacon {
     protected static final int numThreads = 3;
     public static final ExecutorService threading = Executors.newFixedThreadPool(numThreads);
-    public static final Timer intervalScheduler = new Timer(true);
-    public static final ScheduledExecutorService intervalScheduler2 = Executors.newScheduledThreadPool(1);
+    public static final ScheduledExecutorService intervalScheduler = Executors.newScheduledThreadPool(1);
     public static final int STREAMABLE_UPDATE_TIME = 5;
     private static Thread streamableUpdater;
 
@@ -63,18 +61,28 @@ public class JBacon {
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
-                System.out.println("Shutting down interval/sequentially/etc. Timer thread...");
-                intervalScheduler.cancel();
+                try {
+                    System.out.println("Shutting down JBacon scheduler...");
+                    JBacon.intervalScheduler.shutdown();
+                    if(!JBacon.intervalScheduler.awaitTermination(3, TimeUnit.SECONDS)) {
+                        System.out.println("Forcing JBacon scheduler shutdown");
+                        JBacon.intervalScheduler.shutdownNow();
+                    }
+                }
+                catch(InterruptedException e) {
+                    System.out.println("Forcing JBacon scheduler shutdown");
+                    JBacon.threading.shutdownNow();
+                }
                 try {
                     System.out.println("Shutting down JBacon threads...");
                     JBacon.threading.shutdown();
                     if(!JBacon.threading.awaitTermination(3, TimeUnit.SECONDS)) {
-                        System.out.println("Forcing stream thread shutdown");
+                        System.out.println("Forcing JBacon thread shutdown");
                         JBacon.threading.shutdownNow();
                     }
                 }
                 catch(InterruptedException e) {
-                    System.out.println("Forcing stream thread shutdown");
+                    System.out.println("Forcing JBacon thread shutdown");
                     JBacon.threading.shutdownNow();
                 }
                 System.out.println("Shutting down Streamable update thread...");
@@ -280,7 +288,7 @@ public class JBacon {
             protected void onSubscribe() {
                 if(!this.isRunning) {
                     this.isRunning = true;
-                    JBacon.intervalScheduler.schedule(this.timer, millisInterval, millisInterval);
+                    JBacon.intervalScheduler.scheduleAtFixedRate(this.timer, millisInterval, millisInterval, TimeUnit.MILLISECONDS);
                 }
             }
 
@@ -371,7 +379,7 @@ public class JBacon {
             protected void onSubscribe() {
                 if(!this.isRunning) {
                     this.isRunning = true;
-                    JBacon.intervalScheduler.schedule(this.timer, millisInterval, millisInterval);
+                    JBacon.intervalScheduler.scheduleAtFixedRate(this.timer, millisInterval, millisInterval, TimeUnit.MILLISECONDS);
                 }
             }
 
@@ -435,7 +443,7 @@ public class JBacon {
             protected void onSubscribe() {
                 if(!this.isRunning) {
                     this.isRunning = true;
-                    JBacon.intervalScheduler.schedule(this.timer, millisInterval, millisInterval);
+                    JBacon.intervalScheduler.scheduleAtFixedRate(this.timer, millisInterval, millisInterval, TimeUnit.MILLISECONDS);
                 }
             }
 
@@ -484,7 +492,7 @@ public class JBacon {
             @Override
             protected void onSubscribe() {
                 System.out.println("JBacon.later: scheduling distribution");
-                intervalScheduler2.schedule(new Runnable() {
+                intervalScheduler.schedule(new Runnable() {
                     @Override
                     public void run() {
                         canDistribute = true;

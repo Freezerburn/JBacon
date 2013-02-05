@@ -502,4 +502,36 @@ public class EventStream<T> implements Observable<T> {
         }
         return ret;
     }
+
+    @Override
+    public EventStream<T> throttle(final long delay, final TimeUnit timeUnit) {
+        final EventStream<T> ret = new EventStream<T>() {
+            final Object distributeLock = new Object();
+            boolean canDistribute = false;
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                if(canDistribute) {
+                    return Event.pass;
+                }
+                System.out.println("Scheduling event at " + TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS));
+                JBacon.intervalScheduler.schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        synchronized (distributeLock) {
+                            System.out.println("Distributing event at " + TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS));
+                            canDistribute = true;
+                            distribute(event);
+                            canDistribute = false;
+                        }
+                    }
+                }, delay, timeUnit);
+                return Event.noPass;
+            }
+        };
+        ret.parent = this;
+        synchronized (this.streamLock) {
+            this.returnedStreams.push(ret);
+        }
+        return ret;
+    }
 }

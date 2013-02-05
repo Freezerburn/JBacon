@@ -66,4 +66,5 @@ public interface Observable<T> {
     public EventStream<T> skip(int num);
 
     public EventStream<T> delay(long delay, TimeUnit timeUnit);
+    public EventStream<T> throttle(long delay, TimeUnit timeUnit);
 }
