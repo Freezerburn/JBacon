@@ -8,6 +8,8 @@ import jbacon.interfaces.Observable;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -60,31 +62,39 @@ public class EventStream<T> implements Observable<T> {
 
     protected void asyncEventRun(final Event<T> val) {
         for(final F1<Event<T>, String> subscriber : this.eventSubscribers) {
-            JBacon.threading.submit(new Runnable() {
+            Future<Object> future = JBacon.threading.submit(new Callable<Object>() {
                 @Override
-                public void run() {
+                public Object call() throws Exception {
                     final String ret = subscriber.run(val);
                     if(ret.equals(Event.noMore)) {
                         System.out.println(uid + ": Unsubscribing event listener " + subscriber);
                         EventStream.this.unsubscribe(subscriber);
                     }
+                    return null;
                 }
             });
+            JBacon.futures.push(future);
         }
     }
 
     protected void asyncValueRun(final Event<T> val) {
         for(final F2<T, Boolean, String> subscriber : this.valueSubscribers) {
-            JBacon.threading.submit(new Runnable() {
+            Future<Object> future = JBacon.threading.submit(new Callable<Object>() {
                 @Override
-                public void run() {
-                    final String ret = subscriber.run(val.isEnd() ? null : val.getValue(), val.isEnd());
-                    if(ret.equals(Event.noMore)) {
-                        System.out.println(uid + ": Unsubscribing value listener " + subscriber);
-                        EventStream.this.onValueUnsubscribe(subscriber);
+                public Object call() throws Exception {
+                    try {
+                        final String ret = subscriber.run(val.isEnd() ? null : val.getValue(), val.isEnd());
+                        if(ret.equals(Event.noMore)) {
+                            System.out.println(uid + ": Unsubscribing value listener " + subscriber);
+                            EventStream.this.onValueUnsubscribe(subscriber);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                     }
+                    return null;
                 }
             });
+            JBacon.futures.push(future);
         }
     }
 
@@ -111,17 +121,19 @@ public class EventStream<T> implements Observable<T> {
 
     protected void asyncErrorRun(final Event<T> val) {
         for(final F1<String, Event.ErrRet<T>> subscriber : this.errorSubscribers) {
-            JBacon.threading.submit(new Runnable() {
+            Future<Object> future = JBacon.threading.submit(new Callable<Object>() {
                 @Override
-                public void run() {
+                public Object call() throws Exception {
                     final Event.ErrRet<T> ret = subscriber.run(val.getError());
                     if(ret.eventStatus.equals(Event.noMore)) {
                         System.out.println(uid + ": Unsubscribing error listener " + subscriber);
                         EventStream.this.errorUnsubscribe(subscriber);
                     }
                     EventStream.this.distribute(new Event.Next<T>(ret.ret));
+                    return null;
                 }
             });
+            JBacon.futures.push(future);
         }
     }
 
@@ -288,10 +300,18 @@ public class EventStream<T> implements Observable<T> {
             protected String distribute(final Event<T> event) {
                 Event<K> newEvent;
                 if(event.isInitial()) {
-                    newEvent = new Event.Initial<K>(getFromVal.run(event.getValue()));
+                    try {
+                        newEvent = new Event.Initial<K>(getFromVal.run(event.getValue()));
+                    } catch (Exception e) {
+                        newEvent = new Event.Error<K>(e.toString());
+                    }
                 }
                 else if(event.isNext()) {
-                    newEvent = new Event.Next<K>(getFromVal.run(event.getValue()));
+                    try {
+                        newEvent = new Event.Next<K>(getFromVal.run(event.getValue()));
+                    } catch (Exception e) {
+                        newEvent = new Event.Error<K>(e.toString());
+                    }
                 }
                 else if(event.isEnd()) {
                     newEvent = new Event.End<K>();
@@ -317,7 +337,11 @@ public class EventStream<T> implements Observable<T> {
         final EventStream<T> ret = new EventStream<T>() {
             @Override
             protected String distribute(final Event<T> event) {
-                event.val = func.run();
+                try {
+                    event.val = func.run();
+                } catch (Exception e) {
+                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                }
                 return super.distribute(event);
             }
         };
@@ -352,8 +376,12 @@ public class EventStream<T> implements Observable<T> {
             @Override
             protected String distribute(final Event<T> event) {
                 if(event.hasValue()) {
-                    if(func.run(event.val)) {
-                        return super.distribute(event);
+                    try {
+                        if(func.run(event.val)) {
+                            return super.distribute(event);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                     }
                 }
                 return Event.more;
@@ -372,11 +400,15 @@ public class EventStream<T> implements Observable<T> {
             @Override
             protected String onDistribute(final Event<T> event) {
                 if(event.hasValue()) {
-                    if(func.run(event.getValue())) {
-                        return Event.pass;
-                    }
-                    else {
-                        return Event.noMore;
+                    try {
+                        if(func.run(event.getValue())) {
+                            return Event.pass;
+                        }
+                        else {
+                            return Event.noMore;
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                     }
                 }
                 return Event.more;
@@ -420,7 +452,7 @@ public class EventStream<T> implements Observable<T> {
         final boolean[] nextHappened = new boolean[]{false};
         stream.subscribe(new F1<Event<K>, String>() {
             @Override
-            public String run(Event<K> val) {
+            public String run(Event<K> val) throws Exception {
                 if(val.isNext()) {
                     synchronized (happenLock) {
                         nextHappened[0] = true;
@@ -533,5 +565,10 @@ public class EventStream<T> implements Observable<T> {
             this.returnedStreams.push(ret);
         }
         return ret;
+    }
+
+    @Override
+    public EventStream<T> doAction(F1<T, Void> func) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 }

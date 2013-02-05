@@ -6,6 +6,7 @@ import jbacon.interfaces.Streamable;
 import jbacon.types.Event;
 import jbacon.types.EventStream;
 
+import java.util.LinkedList;
 import java.util.TimerTask;
 import java.util.concurrent.*;
 
@@ -25,6 +26,8 @@ public class JBacon {
     protected static final int numThreads = 3;
     public static final ExecutorService threading = Executors.newFixedThreadPool(numThreads);
     public static final ScheduledExecutorService intervalScheduler = Executors.newScheduledThreadPool(1);
+    public static final Object futuresLock = new Object();
+    public static final LinkedList<Future<?>> futures = new LinkedList<Future<?>>();
     public static final int STREAMABLE_UPDATE_TIME = 5;
     private static Thread streamableUpdater;
 
@@ -56,6 +59,36 @@ public class JBacon {
                 }
             }
         });
+        final LinkedList<Future<?>> removeLater = new LinkedList<Future<?>>();
+        intervalScheduler.scheduleAtFixedRate(new Runnable() {
+            @Override
+            public void run() {
+                synchronized (futuresLock) {
+                    for(Future<?> future : futures) {
+                        try {
+                            future.get(2, TimeUnit.MILLISECONDS);
+                            if(future.isDone()) {
+                                removeLater.push(future);
+                            }
+                            Thread.yield();
+                        } catch (ExecutionException e) {
+                            e.getCause().printStackTrace();
+                            System.exit(1);
+                        } catch (CancellationException e) {
+                            e.printStackTrace();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        } catch (TimeoutException e) {
+//                            e.printStackTrace();
+                        }
+                    }
+                    for(Future<?> future : removeLater) {
+                        futures.remove(future);
+                    }
+                    removeLater.clear();
+                }
+            }
+        }, 100, 30, TimeUnit.MILLISECONDS);
 //        streamableUpdater.setDaemon(true);
         // Make sure all our threads get shut down when the program quits.
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
@@ -312,7 +345,7 @@ public class JBacon {
      */
     public static final F1<Long, Long> intervalInMillis = new F1<Long, Long>() {
         @Override
-        public Long run(Long val) {
+        public Long run(Long val) throws Exception {
             return TimeUnit.MILLISECONDS.convert(val, TimeUnit.NANOSECONDS);
         }
     };
@@ -323,7 +356,7 @@ public class JBacon {
      */
     public static final F1<Long, Float> intervalInSeconds = new F1<Long, Float>() {
         @Override
-        public Float run(Long val) {
+        public Float run(Long val) throws Exception {
             return val / 1000000000.0f;
         }
     };
@@ -492,15 +525,19 @@ public class JBacon {
             @Override
             protected void onSubscribe() {
                 System.out.println("JBacon.later: scheduling distribution");
-                intervalScheduler.schedule(new Runnable() {
+                ScheduledFuture<Void> future = intervalScheduler.schedule(new Callable<Void>() {
                     @Override
-                    public void run() {
+                    public Void call() throws Exception {
                         canDistribute = true;
                         distribute(onceEvent);
                         distribute(endEvent);
                         canDistribute = false;
+                        return null;
                     }
                 }, delay, timeUnits);
+                synchronized (futuresLock) {
+                    futures.push(future);
+                }
             }
 
             @Override

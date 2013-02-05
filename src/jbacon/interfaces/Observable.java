@@ -67,4 +67,6 @@ public interface Observable<T> {
 
     public EventStream<T> delay(long delay, TimeUnit timeUnit);
     public EventStream<T> throttle(long delay, TimeUnit timeUnit);
+
+    public EventStream<T> doAction(F1<T, Void> func);
 }
