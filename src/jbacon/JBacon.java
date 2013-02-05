@@ -26,6 +26,7 @@ public class JBacon {
     protected static final int numThreads = 3;
     public static final ExecutorService threading = Executors.newFixedThreadPool(numThreads);
     public static final Timer intervalScheduler = new Timer(true);
+    public static final ScheduledExecutorService intervalScheduler2 = Executors.newScheduledThreadPool(1);
     public static final int STREAMABLE_UPDATE_TIME = 5;
     private static Thread streamableUpdater;
 
@@ -151,17 +152,29 @@ public class JBacon {
         } : new Event.End<T>();
         final EventStream<T> ret = new EventStream<T>() {
             private boolean canTake = false;
+            private boolean skipNext = false;
+
+            @Override
+            protected void distributeFail() {
+                skipNext = true;
+            }
 
             @Override
             protected void onSubscribe() {
                 this.canTake = true;
                 this.distribute(initial);
-                if(vals.length > 0) {
+                // BUG: This will pause execution if for any reason the distribute method does not
+                // deliver the event. For example: stream.filter(false)
+                // Need to find a way to not put something into the queue if something was not
+                // delivered, or just have a timeout. Timeout will "solve" it easily and quickly,
+                // but not fix the root problem.
+                if(vals.length > 0 && !skipNext) {
                     try {
                         queue.put(vals[0]);
                     } catch (InterruptedException e) {
                     }
                 }
+                skipNext = false;
                 for(int i = 1; i < vals.length; i++) {
                     Event<T> next = new Event.Next<T>(null) {
                         @Override
@@ -176,9 +189,12 @@ public class JBacon {
                     };
                     this.distribute(next);
                     try {
-                        queue.put(vals[i]);
+                        if(!skipNext) {
+                            queue.put(vals[i]);
+                        }
                     } catch (InterruptedException e) {
                     }
+                    skipNext = false;
                 }
                 if(vals.length > 0) {
                     System.out.println(1);
@@ -447,7 +463,31 @@ public class JBacon {
         return null;
     }
 
-    public static <T> EventStream<T> later(long delay, T val) {
-        return null;
+    public static <T> EventStream<T> later(final long delay, final TimeUnit timeUnits, final T val) {
+        final Event.Initial<T> onceEvent = new Event.Initial<T>(val);
+        final Event.End<T> endEvent = new Event.End<T>();
+        final EventStream<T> ret = new EventStream<T>() {
+            private boolean canDistribute = false;
+
+            @Override
+            protected void onSubscribe() {
+                System.out.println("JBacon.later: scheduling distribution");
+                intervalScheduler2.schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        canDistribute = true;
+                        distribute(onceEvent);
+                        distribute(endEvent);
+                        canDistribute = false;
+                    }
+                }, delay, timeUnits);
+            }
+
+            @Override
+            protected String onDistribute(final Event<T> event) {
+                return (this.canDistribute && !event.isEnd()) ? Event.pass : Event.noPass;
+            }
+        };
+        return ret;
     }
 }

@@ -49,6 +49,12 @@ public class EventStream<T> implements Observable<T> {
         return Event.pass;
     }
 
+    protected void distributeFail() {
+        if(parent != null) {
+            parent.distributeFail();
+        }
+    }
+
     protected void asyncEventRun(final Event<T> val) {
         for(final F1<Event<T>, String> subscriber : this.eventSubscribers) {
             JBacon.threading.submit(new Runnable() {
@@ -79,18 +85,18 @@ public class EventStream<T> implements Observable<T> {
         }
     }
 
-    protected void asyncStreamTake(final Event<T> val) {
+    protected void streamTake(final Event<T> val) {
         for(final EventStream<T> stream : this.returnedStreams) {
-            JBacon.threading.submit(new Runnable() {
-                @Override
-                public void run() {
+//            JBacon.threading.submit(new Runnable() {
+//                @Override
+//                public void run() {
                     final String ret = stream.distribute(val);
                     if(ret.equals(Event.noMore)) {
                         System.out.println(uid + ": Unsubscribing stream " + stream.uid);
                         EventStream.this.streamUnsubscribe(stream);
                     }
-                }
-            });
+//                }
+//            });
         }
     }
 
@@ -129,7 +135,7 @@ public class EventStream<T> implements Observable<T> {
             this.valueSubscribers.clear();
         }
         synchronized (this.streamLock) {
-            this.asyncStreamTake(end);
+            this.streamTake(end);
             this.returnedStreams.clear();
         }
         System.out.println(this.uid + ": ended" +
@@ -144,11 +150,13 @@ public class EventStream<T> implements Observable<T> {
         final String todo = this.onDistribute(val);
         // *** END HANDLING
         if(val.isEnd() || todo.equals(Event.noMore)) {
+            this.distributeFail();
             this.endStream(val);
             return Event.noMore;
         }
         else if(todo.equals(Event.noPass)) {
-            return Event.more;
+            this.distributeFail();
+            return todo;
         }
         // *** VALUE HANDLING
         else if(val.hasValue()) {
@@ -159,7 +167,7 @@ public class EventStream<T> implements Observable<T> {
                 this.asyncValueRun(val);
             }
             synchronized (this.streamLock) {
-                this.asyncStreamTake(val);
+                this.streamTake(val);
             }
         }
         // *** ERROR HANDLING
@@ -171,7 +179,7 @@ public class EventStream<T> implements Observable<T> {
                 this.asyncErrorRun(val);
             }
             synchronized (this.streamLock) {
-                this.asyncStreamTake(val);
+                this.streamTake(val);
             }
         }
 

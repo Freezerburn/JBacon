@@ -71,21 +71,23 @@ public class Main {
                 return Event.more;
             }
         });
+        System.out.println("AFTER FROMARRAY EMPTY");
         test3.filter(false).onValue(new F2<Long, Boolean, String>() {
             ArrayList<Long> vals = new ArrayList<Long>();
+
             @Override
             public String run(Long val1, Boolean val2) {
-                if(val2) {
+                if (val2) {
                     System.out.println("FromArray non-empty: " + vals);
                     return Event.noMore;
-                }
-                else {
+                } else {
                     vals.add(val1);
                     return Event.more;
                 }
 //                System.out.println("FromArray non-empty: val=" + val1 + ", isEnd=" + val2);
             }
         });
+        System.out.println("AFTER FROMARRAY.FILTER");
 
         Bus<Long> timerBus = new Bus<Long>();
         timerBus.plug(test1);
@@ -129,6 +131,14 @@ public class Main {
             public String run(Object val1, Boolean val2) {
                 System.out.println("Never: " + val1 + ", " + val2);
                 return Event.more;
+            }
+        });
+
+        JBacon.later(300, TimeUnit.MILLISECONDS, 100).onValue(new F2<Integer, Boolean, String>() {
+            @Override
+            public String run(Integer val1, Boolean val2) {
+                System.out.println("Later: " + val1);
+                return Event.noMore;
             }
         });
 
