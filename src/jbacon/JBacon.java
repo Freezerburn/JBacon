@@ -190,10 +190,13 @@ public class JBacon {
     public static <T> EventStream<T> fromArray(final T... vals) {
         final SynchronousQueue<T> queue = new SynchronousQueue<T>(true);
         final Event<T> initial = vals.length > 0 ? new Event.Initial<T>(null) {
+            T ret = null;
             @Override
             public T getValue() {
                 try {
-                    T ret = queue.take();
+                    if(ret == null) {
+                        ret = queue.take();
+                    }
                     return ret;
                 } catch (InterruptedException e) {
                 }
@@ -232,10 +235,13 @@ public class JBacon {
                 skipNext = false;
                 for(int i = 1; i < vals.length; i++) {
                     Event<T> next = new Event.Next<T>(null) {
+                        T ret = null;
                         @Override
                         public T getValue() {
                             try {
-                                T ret = queue.take();
+                                if(ret == null) {
+                                    ret = queue.take();
+                                }
                                 return ret;
                             } catch (InterruptedException e) {
                             }

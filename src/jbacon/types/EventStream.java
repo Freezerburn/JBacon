@@ -65,9 +65,12 @@ public class EventStream<T> implements Observable<T> {
             Future<Object> future = JBacon.threading.submit(new Callable<Object>() {
                 @Override
                 public Object call() throws Exception {
-                    final String ret = subscriber.run(val);
+                    String ret = null;
+                    synchronized (subscriber) {
+                        ret = subscriber.run(val);
+                    }
                     if(ret.equals(JBacon.noMore)) {
-                        System.out.println(uid + ": Unsubscribing event listener " + subscriber);
+//                        System.out.println(uid + ": Unsubscribing event listener " + subscriber);
                         EventStream.this.unsubscribe(subscriber);
                     }
                     return null;
@@ -83,13 +86,16 @@ public class EventStream<T> implements Observable<T> {
                 @Override
                 public Object call() throws Exception {
                     try {
-                        final String ret = subscriber.run(val.isEnd() ? null : val.getValue(), val.isEnd());
+                        String ret;
+                        synchronized (subscriber) {
+                            ret = subscriber.run(val.isEnd() ? null : val.getValue(), val.isEnd());
+                        }
                         if(ret.equals(JBacon.noMore)) {
-                            System.out.println(uid + ": Unsubscribing value listener " + subscriber);
+//                            System.out.println(uid + ": Unsubscribing value listener " + subscriber);
                             EventStream.this.onValueUnsubscribe(subscriber);
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                        e.printStackTrace();
                     }
                     return null;
                 }
@@ -111,7 +117,7 @@ public class EventStream<T> implements Observable<T> {
 //                public void run() {
                     final String ret = stream.distribute(val);
                     if(ret.equals(JBacon.noMore)) {
-                        System.out.println(uid + ": Unsubscribing stream " + stream.uid);
+//                        System.out.println(uid + ": Unsubscribing stream " + stream.uid);
                         EventStream.this.streamUnsubscribe(stream);
                     }
 //                }
@@ -126,7 +132,7 @@ public class EventStream<T> implements Observable<T> {
                 public Object call() throws Exception {
                     final Event.ErrRet<T> ret = subscriber.run(val.getError());
                     if(ret.eventStatus.equals(JBacon.noMore)) {
-                        System.out.println(uid + ": Unsubscribing error listener " + subscriber);
+//                        System.out.println(uid + ": Unsubscribing error listener " + subscriber);
                         EventStream.this.errorUnsubscribe(subscriber);
                     }
                     EventStream.this.distribute(new Event.Next<T>(ret.ret));
@@ -138,10 +144,10 @@ public class EventStream<T> implements Observable<T> {
     }
 
     protected void endStream(final Event<T> optional) {
-        System.out.println(this.uid + ": ending stream" +
-                " e(" + eventSubscribers.size() + ")" +
-                " v(" + valueSubscribers.size() + ")" +
-                " s(" + returnedStreams.size() + ")");
+//        System.out.println(this.uid + ": ending stream" +
+//                " e(" + eventSubscribers.size() + ")" +
+//                " v(" + valueSubscribers.size() + ")" +
+//                " s(" + returnedStreams.size() + ")");
         this.ended = true;
         final Event<T> end = optional == null ? new Event.End<T>() : optional;
         synchronized (this.eventLock) {
@@ -159,10 +165,10 @@ public class EventStream<T> implements Observable<T> {
             this.streamTake(end);
             this.returnedStreams.clear();
         }
-        System.out.println(this.uid + ": ended" +
-                " e(" + eventSubscribers.size() + ")" +
-                " v(" + valueSubscribers.size() + ")" +
-                " s(" + returnedStreams.size() + ")");
+//        System.out.println(this.uid + ": ended" +
+//                " e(" + eventSubscribers.size() + ")" +
+//                " v(" + valueSubscribers.size() + ")" +
+//                " s(" + returnedStreams.size() + ")");
     }
 
     protected String distribute(final Event<T> val) {
@@ -522,7 +528,7 @@ public class EventStream<T> implements Observable<T> {
             @Override
             protected String onDistribute(final Event<T> event) {
                 if(this.whenDelayStop > 0 && System.nanoTime() > this.whenDelayStop) {
-                    System.out.println("delay distributing now");
+//                    System.out.println("delay distributing now");
                     return JBacon.pass;
                 }
                 return JBacon.noPass;
@@ -545,12 +551,12 @@ public class EventStream<T> implements Observable<T> {
                 if(canDistribute) {
                     return JBacon.pass;
                 }
-                System.out.println("Scheduling event at " + TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS));
+//                System.out.println("Scheduling event at " + TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS));
                 JBacon.intervalScheduler.schedule(new Runnable() {
                     @Override
                     public void run() {
                         synchronized (distributeLock) {
-                            System.out.println("Distributing event at " + TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS));
+//                            System.out.println("Distributing event at " + TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS));
                             canDistribute = true;
                             distribute(event);
                             canDistribute = false;
