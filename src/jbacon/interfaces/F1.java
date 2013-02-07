@@ -7,5 +7,5 @@ package jbacon.interfaces;
  * Time: 1:22 PM
  */
 public interface F1<Param, Ret> {
-    public Ret run(final Param val) throws Exception;
+    public Ret run(final Param val);
 }

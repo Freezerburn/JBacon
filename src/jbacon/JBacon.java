@@ -7,7 +7,6 @@ import jbacon.types.Event;
 import jbacon.types.EventStream;
 
 import java.util.LinkedList;
-import java.util.TimerTask;
 import java.util.concurrent.*;
 
 /**
@@ -27,73 +26,40 @@ public class JBacon {
     public static final String more = "moar bacon!";
     public static final String pass = "good bacon!";
     public static final String noPass = "bad bacon!";
-    protected static final int numThreads = 3;
-    public static final ExecutorService threading = Executors.newFixedThreadPool(numThreads);
+
+    protected static final LinkedList<Future<Void>> futures = new LinkedList<Future<Void>>();
     public static final ScheduledExecutorService intervalScheduler = Executors.newScheduledThreadPool(1);
-    public static final Object futuresLock = new Object();
-    public static final LinkedList<Future<?>> futures = new LinkedList<Future<?>>();
+
     public static final int STREAMABLE_UPDATE_TIME = 5;
-    private static Thread streamableUpdater;
+    public static final int CHECK_FUTURE_DELAY = 30;
 
     static {
-        streamableUpdater = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                boolean isRunning = true;
-                while(isRunning) {
-                    try {
-                        for(final Streamable<?> s : Streamable.allStreamables) {
-                            JBacon.threading.submit(new Runnable() {
-                                @Override
-                                public void run() {
-                                    // This should hopefully prevent two threads from running the same update
-                                    // function at the same time and stomping on each other, if that should ever
-                                    // happen.
-                                    synchronized (s) {
-                                        s.update();
-                                    }
-                                }
-                            });
-                        }
-                        Thread.sleep(STREAMABLE_UPDATE_TIME);
-                    } catch (InterruptedException e) {
-                        System.out.println("Streamable update thread interrupted, stopping.");
-                        isRunning = false;
-                    }
-                }
-            }
-        });
-        final LinkedList<Future<?>> removeLater = new LinkedList<Future<?>>();
         intervalScheduler.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
-                synchronized (futuresLock) {
-                    for(Future<?> future : futures) {
-                        try {
-                            future.get(2, TimeUnit.MILLISECONDS);
-                            if(future.isDone()) {
-                                removeLater.push(future);
-                            }
-                            Thread.yield();
-                        } catch (ExecutionException e) {
-                            e.getCause().printStackTrace();
-                            System.exit(1);
-                        } catch (CancellationException e) {
-                            e.printStackTrace();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        } catch (TimeoutException e) {
-//                            e.printStackTrace();
-                        }
-                    }
-                    for(Future<?> future : removeLater) {
-                        futures.remove(future);
-                    }
-                    removeLater.clear();
+                for(final Streamable<?> s : Streamable.allStreamables) {
+                    s.update();
                 }
             }
-        }, 100, 30, TimeUnit.MILLISECONDS);
-//        streamableUpdater.setDaemon(true);
+        }, STREAMABLE_UPDATE_TIME, STREAMABLE_UPDATE_TIME, TimeUnit.MILLISECONDS);
+        intervalScheduler.scheduleAtFixedRate(new Runnable() {
+            @Override
+            public void run() {
+                for(Future<Void> future : futures) {
+                    if(future.isDone()) {
+                        try {
+                            future.get();
+                        } catch (InterruptedException e) {
+                        } catch (ExecutionException e) {
+                            System.err.println("Exception during scheduled JBacon runnable");
+                            e.printStackTrace();
+                            System.exit(1);
+                        }
+                    }
+                }
+            }
+        }, CHECK_FUTURE_DELAY, CHECK_FUTURE_DELAY, TimeUnit.MILLISECONDS);
+
         // Make sure all our threads get shut down when the program quits.
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
@@ -108,22 +74,8 @@ public class JBacon {
                 }
                 catch(InterruptedException e) {
                     System.out.println("Forcing JBacon scheduler shutdown");
-                    JBacon.threading.shutdownNow();
+                    JBacon.intervalScheduler.shutdownNow();
                 }
-                try {
-                    System.out.println("Shutting down JBacon threads...");
-                    JBacon.threading.shutdown();
-                    if(!JBacon.threading.awaitTermination(3, TimeUnit.SECONDS)) {
-                        System.out.println("Forcing JBacon thread shutdown");
-                        JBacon.threading.shutdownNow();
-                    }
-                }
-                catch(InterruptedException e) {
-                    System.out.println("Forcing JBacon thread shutdown");
-                    JBacon.threading.shutdownNow();
-                }
-                System.out.println("Shutting down Streamable update thread...");
-                streamableUpdater.interrupt();
             }
         }));
     }
@@ -154,29 +106,15 @@ public class JBacon {
         final Event.Initial<T> onceEvent = new Event.Initial<T>(val);
         final Event.End<T> endEvent = new Event.End<T>();
         final EventStream<T> ret = new EventStream<T>() {
-            private boolean canDistribute = false;
-
             @Override
             protected void onSubscribe() {
-                this.canDistribute = true;
                 this.distribute(onceEvent);
                 this.distribute(endEvent);
-                this.canDistribute = false;
-            }
-
-            @Override
-            protected String onDistribute(final Event<T> event) {
-                return (this.canDistribute && !event.isEnd()) ? JBacon.pass : JBacon.noPass;
             }
         };
         return ret;
     }
 
-    /*
-    Thar be dragons here, edit with care! I've had to put in a few different hacks to account for
-    different types of subscriber streams, so screwing around with it can have bad results. Possibly
-    freezing your program entirely.
-     */
     /**
      * Creates an EventStream that will pass all parameters to the first subscriber, then immediately
      * end. <br/>
@@ -188,97 +126,19 @@ public class JBacon {
      * @return An EventStream that pushes the parameters to the first subscriber.
      */
     public static <T> EventStream<T> fromArray(final T... vals) {
-        final SynchronousQueue<T> queue = new SynchronousQueue<T>(true);
-        final Event<T> initial = vals.length > 0 ? new Event.Initial<T>(null) {
-            T ret = null;
-            @Override
-            public T getValue() {
-                try {
-                    if(ret == null) {
-                        ret = queue.take();
-                    }
-                    return ret;
-                } catch (InterruptedException e) {
-                    System.out.println("Custom initial interrupted... what?");
-                }
-                return null;
-            }
-        } : new Event.End<T>();
+        final Event<T> initial = vals.length > 0 ? new Event.Initial<T>(vals[0]) : new Event.End<T>();
         final EventStream<T> ret = new EventStream<T>() {
-            private boolean canTake = false;
-            private boolean skipNext = false;
-            private boolean ended = false;
-
-            @Override
-            protected void distributeFail(final boolean end) {
-                if(end) {
-                    ended = true;
-                }
-                else {
-                    skipNext = true;
-                }
-            }
-
             @Override
             protected void onSubscribe() {
-                this.canTake = true;
                 System.out.println(uid + ": distributing initial");
                 this.distribute(initial);
-                System.out.println(uid + ": " + 1);
-                if(ended) {
-                    System.out.println(uid + ": fromArray ended");
-                    this.distribute(new Event.End<T>());
-                    return;
-                }
-                System.out.println(uid + ": Skipping next? " + skipNext);
-                if(vals.length > 0 && !skipNext) {
-                    try {
-                        System.out.println(uid + ": Putting " + vals[0]);
-                        queue.put(vals[0]);
-                    } catch (InterruptedException e) {
-                    }
-                }
-                skipNext = false;
                 for(int i = 1; i < vals.length; i++) {
-                    Event<T> next = new Event.Next<T>(null) {
-                        T ret = null;
-                        @Override
-                        public T getValue() {
-                            try {
-                                if(ret == null) {
-                                    ret = queue.take();
-                                }
-                                return ret;
-                            } catch (InterruptedException e) {
-                            }
-                            return null;
-                        }
-                    };
+                    Event<T> next = new Event.Next<T>(vals[i]);
                     this.distribute(next);
-                    if(ended) {
-                        this.distribute(new Event.End<T>());
-                        return;
-                    }
-                    try {
-                        if(!skipNext) {
-                            queue.put(vals[i]);
-                        }
-                    } catch (InterruptedException e) {
-                    }
-                    skipNext = false;
                 }
                 if(vals.length > 0) {
                     this.distribute(new Event.End<T>());
                 }
-                this.canTake = false;
-            }
-
-            @Override
-            protected String onDistribute(final Event<T> event) {
-                if(this.canTake) {
-                    return JBacon.pass;
-                }
-                return JBacon.noPass;
             }
         };
         return ret;
@@ -301,34 +161,20 @@ public class JBacon {
         final EventStream<Long> ret = new EventStream<Long>() {
             private boolean isRunning = false;
             private Event<Long> firstEvent = initial;
-            private final Object takeLock = new Object();
-            private boolean canTake = false;
             private long lastTime;
-            private TimerTask timer = new TimerTask() {
+
+            private Runnable timer = new Runnable() {
                 @Override
                 public void run() {
-                    if(!eventSubscribers.isEmpty() ||
-                            !valueSubscribers.isEmpty() ||
-                            !errorSubscribers.isEmpty() ||
-                            !returnedStreams.isEmpty()) {
-                        if(firstEvent != null) {
-                            synchronized (takeLock) {
-                                canTake = true;
-                                distribute(firstEvent);
-                                canTake = false;
-                                firstEvent = null;
-                                lastTime = System.nanoTime();
-                            }
-                        }
-                        else {
-                            synchronized (takeLock) {
-                                canTake = true;
-                                long interval = System.nanoTime() - lastTime;
-                                lastTime = System.nanoTime();
-                                distribute(new Event.Next<Long>(interval));
-                                canTake = false;
-                            }
-                        }
+                    if(firstEvent != null) {
+                            distribute(firstEvent);
+                            firstEvent = null;
+                            lastTime = System.nanoTime();
+                    }
+                    else {
+                            long interval = System.nanoTime() - lastTime;
+                            lastTime = System.nanoTime();
+                            distribute(new Event.Next<Long>(interval));
                     }
                 }
             };
@@ -340,31 +186,19 @@ public class JBacon {
                     JBacon.intervalScheduler.scheduleAtFixedRate(this.timer, millisInterval, millisInterval, TimeUnit.MILLISECONDS);
                 }
             }
-
-            @Override
-            protected String onDistribute(final Event<Long> event) {
-                if(event.isEnd()) {
-                    this.timer.cancel();
-                }
-                if(this.canTake) {
-                    return JBacon.pass;
-                }
-                return JBacon.noPass;
-            }
         };
         return ret;
     }
 
     public static <T> EventStream<T> interval(final long delay, final TimeUnit timeUnit, final T val) {
         final EventStream<T> ret = new EventStream<T>() {
-            boolean canDistribute = false;
             Event<T> firstEvent = new Event.Initial<T>(val);
+
             @Override
             protected void onSubscribe() {
                 JBacon.intervalScheduler.scheduleAtFixedRate(new Runnable() {
                     @Override
                     public void run() {
-                        canDistribute = true;
                         if(firstEvent != null) {
                             distribute(firstEvent);
                             firstEvent = null;
@@ -372,15 +206,8 @@ public class JBacon {
                         else {
                             distribute(new Event.Next<T>(val));
                         }
-                        canDistribute = false;
                     }
                 }, delay, delay, timeUnit);
-            }
-
-            @Override
-            protected String onDistribute(final Event<T> event) {
-                if(canDistribute) return JBacon.pass;
-                return JBacon.noPass;
             }
         };
         return ret;
@@ -392,7 +219,7 @@ public class JBacon {
      */
     public static final F1<Long, Long> intervalInMillis = new F1<Long, Long>() {
         @Override
-        public Long run(Long val) throws Exception {
+        public Long run(Long val) {
             return TimeUnit.MILLISECONDS.convert(val, TimeUnit.NANOSECONDS);
         }
     };
@@ -403,51 +230,40 @@ public class JBacon {
      */
     public static final F1<Long, Float> intervalInSeconds = new F1<Long, Float>() {
         @Override
-        public Float run(Long val) throws Exception {
+        public Float run(Long val) {
             return val / 1000000000.0f;
         }
     };
 
-    public static <T> EventStream<T> sequentially(long interval, TimeUnit timeUnit, final T... vals) {
-        final long millisInterval = TimeUnit.MILLISECONDS.convert(interval, timeUnit);
+    public static <T> EventStream<T> sequentially(final long interval, final TimeUnit timeUnit, final T... vals) {
         final Event.Initial<T> initial = new Event.Initial<T>(vals[0]);
         final EventStream<T> ret = new EventStream<T>() {
             private boolean isRunning = false;
             private Event<T> firstEvent = initial;
-            private final Object takeLock = new Object();
-            private boolean canTake = false;
             private int cur = 0;
-            private long lastTime;
-            private TimerTask timer = new TimerTask() {
+
+            private Runnable timer = new Runnable() {
                 @Override
                 public void run() {
-                    if(!eventSubscribers.isEmpty() ||
-                            !valueSubscribers.isEmpty() ||
-                            !errorSubscribers.isEmpty() ||
-                            !returnedStreams.isEmpty()) {
-                        if(firstEvent != null) {
-                            synchronized (takeLock) {
-                                canTake = true;
-                                distribute(firstEvent);
-                                canTake = false;
-                                firstEvent = null;
-                                lastTime = System.nanoTime();
-                            }
+                    if(firstEvent != null) {
+                        distribute(firstEvent);
+                        firstEvent = null;
+                        if(vals.length == 1) {
+                            distribute(new Event.End<T>());
                         }
                         else {
-                            synchronized (takeLock) {
-                                canTake = true;
-                                long interval = System.nanoTime() - lastTime;
-                                lastTime = System.nanoTime();
-                                cur++;
-                                T next = vals[cur];
-                                distribute(new Event.Next<T>(next));
-                                if(cur == vals.length - 1) {
-                                    Thread.yield();
-                                    distribute(new Event.End());
-                                }
-                                canTake = false;
-                            }
+                            JBacon.intervalScheduler.schedule(timer, interval, timeUnit);
+                        }
+                    }
+                    else {
+                        cur++;
+                        T next = vals[cur];
+                        distribute(new Event.Next<T>(next));
+                        if(cur == vals.length - 1) {
+                            distribute(new Event.End());
+                        }
+                        else {
+                            JBacon.intervalScheduler.schedule(timer, interval, timeUnit);
                         }
                     }
                 }
@@ -457,20 +273,8 @@ public class JBacon {
             protected void onSubscribe() {
                 if(!this.isRunning) {
                     this.isRunning = true;
-                    JBacon.intervalScheduler.scheduleAtFixedRate(this.timer, millisInterval, millisInterval, TimeUnit.MILLISECONDS);
+                    JBacon.intervalScheduler.schedule(this.timer, interval, timeUnit);
                 }
-            }
-
-            @Override
-            protected String onDistribute(final Event<T> event) {
-                if(event.isEnd()) {
-                    this.timer.cancel();
-                    return JBacon.noMore;
-                }
-                if(this.canTake) {
-                    return JBacon.pass;
-                }
-                return JBacon.noPass;
             }
         };
         return ret;
@@ -482,37 +286,19 @@ public class JBacon {
         final EventStream<T> ret = new EventStream<T>() {
             private boolean isRunning = false;
             private Event<T> firstEvent = initial;
-            private final Object takeLock = new Object();
-            private boolean canTake = false;
             private int cur = 0;
-            private long lastTime;
-            private TimerTask timer = new TimerTask() {
+
+            private Runnable timer = new Runnable() {
                 @Override
                 public void run() {
-                    if(!eventSubscribers.isEmpty() ||
-                            !valueSubscribers.isEmpty() ||
-                            !errorSubscribers.isEmpty() ||
-                            !returnedStreams.isEmpty()) {
-                        if(firstEvent != null) {
-                            synchronized (takeLock) {
-                                canTake = true;
-                                distribute(firstEvent);
-                                canTake = false;
-                                firstEvent = null;
-                                lastTime = System.nanoTime();
-                            }
-                        }
-                        else {
-                            synchronized (takeLock) {
-                                canTake = true;
-                                long interval = System.nanoTime() - lastTime;
-                                lastTime = System.nanoTime();
-                                cur = (cur + 1) % vals.length;
-                                T next = vals[cur];
-                                distribute(new Event.Next<T>(next));
-                                canTake = false;
-                            }
-                        }
+                    if(firstEvent != null) {
+                        distribute(firstEvent);
+                        firstEvent = null;
+                    }
+                    else {
+                        cur = (cur + 1) % vals.length;
+                        T next = vals[cur];
+                        distribute(new Event.Next<T>(next));
                     }
                 }
             };
@@ -523,17 +309,6 @@ public class JBacon {
                     this.isRunning = true;
                     JBacon.intervalScheduler.scheduleAtFixedRate(this.timer, millisInterval, millisInterval, TimeUnit.MILLISECONDS);
                 }
-            }
-
-            @Override
-            protected String onDistribute(final Event<T> event) {
-                if(event.isEnd()) {
-                    this.timer.cancel();
-                }
-                if(this.canTake) {
-                    return JBacon.pass;
-                }
-                return JBacon.noPass;
             }
         };
         return ret;
@@ -565,29 +340,18 @@ public class JBacon {
         final Event.Initial<T> onceEvent = new Event.Initial<T>(val);
         final Event.End<T> endEvent = new Event.End<T>();
         final EventStream<T> ret = new EventStream<T>() {
-            private boolean canDistribute = false;
-
             @Override
             protected void onSubscribe() {
                 System.out.println("JBacon.later: scheduling distribution");
                 ScheduledFuture<Void> future = intervalScheduler.schedule(new Callable<Void>() {
                     @Override
                     public Void call() throws Exception {
-                        canDistribute = true;
                         distribute(onceEvent);
                         distribute(endEvent);
-                        canDistribute = false;
                         return null;
                     }
                 }, delay, timeUnits);
-                synchronized (futuresLock) {
-                    futures.push(future);
-                }
-            }
-
-            @Override
-            protected String onDistribute(final Event<T> event) {
-                return (this.canDistribute && !event.isEnd()) ? JBacon.pass : JBacon.noPass;
+                futures.push(future);
             }
         };
         return ret;
@@ -600,9 +364,8 @@ public class JBacon {
                 try {
                     callback.run(new F1<T, Void>() {
                         @Override
-                        public Void run(T val) throws Exception {
+                        public Void run(T val) {
                             distribute(new Event.Initial<T>(val));
-                            Thread.yield();
                             distribute(new Event.End<T>());
                             return null;
                         }

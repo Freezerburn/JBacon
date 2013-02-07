@@ -6,7 +6,6 @@ import jbacon.interfaces.F1;
 import jbacon.types.Event;
 import jbacon.types.EventStream;
 
-import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
@@ -43,7 +42,7 @@ public class Utils {
                 boolean gotInitial = false;
                 int cur = 0;
                 @Override
-                public String run(Event<T> val) throws Exception {
+                public String run(Event<T> val) {
                     if(val.hasValue()) {
                         if(!gotInitial) {
                             if(DEBUG) {
@@ -98,7 +97,7 @@ public class Utils {
                 int cur = 0;
                 long expectedTime = initialDelay == 0 ? 0 : System.nanoTime() + TimeUnit.NANOSECONDS.convert(initialDelay, timeUnit);
                 @Override
-                public String run(Event<T> val) throws Exception {
+                public String run(Event<T> val) {
                     final long curTime = System.nanoTime();
                     if(val.hasValue()) {
                         if(!gotInitial) {

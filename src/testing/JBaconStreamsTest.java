@@ -3,16 +3,11 @@ package testing;
 import jbacon.JBacon;
 import jbacon.interfaces.F;
 import jbacon.interfaces.F1;
-import jbacon.interfaces.F2;
 import jbacon.types.EventStream;
-import junit.framework.Assert;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
-import static junit.framework.Assert.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -28,7 +23,7 @@ public class JBaconStreamsTest {
     public void testLaterWithUtil() {
         final F<EventStream<String>> f = new F<EventStream<String>>() {
             @Override
-            public EventStream<String> run() throws Exception {
+            public EventStream<String> run() {
                 return JBacon.later(100, TimeUnit.MILLISECONDS, "lol");
             }
         };
@@ -44,7 +39,7 @@ public class JBaconStreamsTest {
     public void testSequentiallyWithUtil() {
         final F<EventStream<String>> f = new F<EventStream<String>>() {
             @Override
-            public EventStream<String> run() throws Exception {
+            public EventStream<String> run() {
                 return JBacon.sequentially(100, TimeUnit.MILLISECONDS, "lol", "wut");
             }
         };
@@ -60,7 +55,7 @@ public class JBaconStreamsTest {
     public void testIntervalWithUtil() {
         final F<EventStream<String>> f = new F<EventStream<String>>() {
             @Override
-            public EventStream<String> run() throws Exception {
+            public EventStream<String> run() {
                 return JBacon.interval(100, TimeUnit.MILLISECONDS, "lol").take(3);
             }
         };
@@ -76,14 +71,14 @@ public class JBaconStreamsTest {
     public void testFromCallbackWithUtil() {
         final F1<F1<String, Void>, String> callback = new F1<F1<String, Void>, String>() {
             @Override
-            public String run(F1<String, Void> val) throws Exception {
+            public String run(F1<String, Void> val) {
                 val.run("lol");
                 return null;
             }
         };
         final F<EventStream<String>> f = new F<EventStream<String>>() {
             @Override
-            public EventStream<String> run() throws Exception {
+            public EventStream<String> run() {
                 return JBacon.fromCallback(callback);
             }
         };
@@ -96,7 +91,7 @@ public class JBaconStreamsTest {
     public void testFromArrayWithUtil() {
         final F<EventStream<Float>> f = new F<EventStream<Float>>() {
             @Override
-            public EventStream<Float> run() throws Exception {
+            public EventStream<Float> run() {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f);
             }
         };
@@ -109,7 +104,7 @@ public class JBaconStreamsTest {
     public void testFromArrayTakeWithUtil() {
         final F<EventStream<Float>> f = new F<EventStream<Float>>() {
             @Override
-            public EventStream<Float> run() throws Exception {
+            public EventStream<Float> run() {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).take(4);
             }
         };
@@ -122,13 +117,13 @@ public class JBaconStreamsTest {
     public void testFromArrayFilterWithUtil() {
         final F<EventStream<Float>> f1 = new F<EventStream<Float>>() {
             @Override
-            public EventStream<Float> run() throws Exception {
+            public EventStream<Float> run() {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).filter(false);
             }
         };
         final F<EventStream<Float>> f2 = new F<EventStream<Float>>() {
             @Override
-            public EventStream<Float> run() throws Exception {
+            public EventStream<Float> run() {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).filter(true);
             }
         };
@@ -144,14 +139,14 @@ public class JBaconStreamsTest {
     public void testFromArrayMapWithUtil() {
         final F1<Float, Float> multTwo = new F1<Float, Float>() {
             @Override
-            public Float run(Float val) throws Exception {
+            public Float run(Float val) {
                 System.out.println("multtwo: " + (val * 2.0f));
                 return val * 2.0f;
             }
         };
         final F<EventStream<Float>> f = new F<EventStream<Float>>() {
             @Override
-            public EventStream<Float> run() throws Exception {
+            public EventStream<Float> run() {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f).map(multTwo);
             }
         };
