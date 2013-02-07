@@ -21,6 +21,17 @@ import static org.junit.Assert.assertTrue;
 public class Utils {
     public static final boolean DEBUG = true;
 
+    public static<T> EventStream<T> series(final long delayInMillis,
+                                           final T... values) {
+        return JBacon.sequentially(delayInMillis, TimeUnit.MILLISECONDS, values);
+    }
+
+    public static <T> EventStream<T> series(final long delay,
+                                            final TimeUnit timeUnit,
+                                            final T... values) {
+        return JBacon.sequentially(delay, timeUnit, values);
+    }
+
     public static <T> void expectStreamEvents(final String description,
                                               final F<EventStream<T>> f,
                                               final T... expected) {

@@ -199,6 +199,7 @@ public class JBacon {
                     }
                     return ret;
                 } catch (InterruptedException e) {
+                    System.out.println("Custom initial interrupted... what?");
                 }
                 return null;
             }
@@ -221,13 +222,18 @@ public class JBacon {
             @Override
             protected void onSubscribe() {
                 this.canTake = true;
+                System.out.println(uid + ": distributing initial");
                 this.distribute(initial);
+                System.out.println(uid + ": " + 1);
                 if(ended) {
+                    System.out.println(uid + ": fromArray ended");
                     this.distribute(new Event.End<T>());
                     return;
                 }
+                System.out.println(uid + ": Skipping next? " + skipNext);
                 if(vals.length > 0 && !skipNext) {
                     try {
+                        System.out.println(uid + ": Putting " + vals[0]);
                         queue.put(vals[0]);
                     } catch (InterruptedException e) {
                     }

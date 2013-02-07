@@ -46,6 +46,7 @@ public class EventStream<T> implements Observable<T> {
 
     protected void onSubscribe() {
         if(parent != null) {
+            System.out.println(uid + ": sending onSubscribe to parent");
             parent.onSubscribe();
         }
     }
@@ -62,11 +63,13 @@ public class EventStream<T> implements Observable<T> {
 
     protected void asyncEventRun(final Event<T> val) {
         for(final F1<Event<T>, String> subscriber : this.eventSubscribers) {
+            System.out.println(uid + ": submitting callable");
             Future<Object> future = JBacon.threading.submit(new Callable<Object>() {
                 @Override
                 public Object call() throws Exception {
                     String ret = null;
                     synchronized (subscriber) {
+                        System.out.println(uid + ": running subscriber with event (async)");
                         ret = subscriber.run(val);
                     }
                     if(ret.equals(JBacon.noMore)) {
@@ -175,6 +178,7 @@ public class EventStream<T> implements Observable<T> {
         if(this.ended) return JBacon.noMore;
 
         final String todo = this.onDistribute(val);
+        System.out.println(uid + ": onDistribute " + todo);
         // *** END HANDLING
         if(val.isEnd() || todo.equals(JBacon.noMore)) {
             this.distributeFail(true);
@@ -187,7 +191,9 @@ public class EventStream<T> implements Observable<T> {
         }
         // *** VALUE HANDLING
         else if(val.hasValue()) {
+//            System.out.println(uid + ": value " + val.getValue());
             synchronized (eventLock) {
+                System.out.println(uid + ": sending value async");
                 this.asyncEventRun(val);
             }
             synchronized (valueLock) {
@@ -241,6 +247,7 @@ public class EventStream<T> implements Observable<T> {
             }
         };
         synchronized (this.eventLock) {
+            System.out.println(uid + ": pushing subscriber");
             this.eventSubscribers.push(f);
         }
         this.onSubscribe();
@@ -298,35 +305,50 @@ public class EventStream<T> implements Observable<T> {
 
     @Override
     public <K> EventStream<K> map(final F1<T, K> getFromVal) {
-        final EventStream<K> ret = new EventStream<K>();
+        final EventStream<K> ret = new EventStream<K>() {
+            @Override
+            protected String distribute(final Event<K> event) {
+                System.out.println(uid + ": distribute inner");
+                return super.distribute(event);
+            }
+        };
         // Takes in events through the current EventStream and converts them to a value accepted by the
         // returned EventStream before pushing them to the returned EventStream.
         final EventStream<T> intermediary = new EventStream<T>() {
             @Override
             protected String distribute(final Event<T> event) {
                 Event<K> newEvent;
+                System.out.println("map event");
                 if(event.isInitial()) {
                     try {
+                        System.out.println("initial event " + event.getValue());
                         newEvent = new Event.Initial<K>(getFromVal.run(event.getValue()));
+                        System.out.println("initial event 2 " + newEvent.getValue());
                     } catch (Exception e) {
+                        System.out.println("error event");
                         newEvent = new Event.Error<K>(e.toString());
                     }
                 }
                 else if(event.isNext()) {
                     try {
+                        System.out.println("next event");
                         newEvent = new Event.Next<K>(getFromVal.run(event.getValue()));
                     } catch (Exception e) {
+                        System.out.println("error event");
                         newEvent = new Event.Error<K>(e.toString());
                     }
                 }
                 else if(event.isEnd()) {
+                    System.out.println("end event");
                     newEvent = new Event.End<K>();
                 }
                 else {
+                    System.out.println("error event");
                     newEvent = new Event.Error<K>(event.getError());
                 }
                 // We don't even want to call our own distribute, we're merely here to transmit the transformed
                 // Event to the returned EventStream.
+                System.out.println("distribute");
                 return ret.distribute(newEvent);
             }
         };
@@ -346,7 +368,7 @@ public class EventStream<T> implements Observable<T> {
                 try {
                     event.val = func.run();
                 } catch (Exception e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                    e.printStackTrace();
                 }
                 return super.distribute(event);
             }
@@ -387,7 +409,7 @@ public class EventStream<T> implements Observable<T> {
                             return super.distribute(event);
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                        e.printStackTrace();
                     }
                 }
                 return JBacon.more;
@@ -575,6 +597,11 @@ public class EventStream<T> implements Observable<T> {
 
     @Override
     public EventStream<T> doAction(F1<T, Void> func) {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public EventStream<T> scan(T seed, F1<T, T> accumulator) {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 }

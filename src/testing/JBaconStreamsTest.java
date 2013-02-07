@@ -139,4 +139,24 @@ public class JBaconStreamsTest {
                 f2,
                 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f);
     }
+
+    @Test(timeout = 100)
+    public void testFromArrayMapWithUtil() {
+        final F1<Float, Float> multTwo = new F1<Float, Float>() {
+            @Override
+            public Float run(Float val) throws Exception {
+                System.out.println("multtwo: " + (val * 2.0f));
+                return val * 2.0f;
+            }
+        };
+        final F<EventStream<Float>> f = new F<EventStream<Float>>() {
+            @Override
+            public EventStream<Float> run() throws Exception {
+                return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f).map(multTwo);
+            }
+        };
+        Utils.expectStreamEvents("testFromArrayMapWithUtil",
+                f,
+                2.0f, 4.0f, 6.0f, 8.0f);
+    }
 }

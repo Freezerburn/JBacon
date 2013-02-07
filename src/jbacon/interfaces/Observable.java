@@ -69,4 +69,6 @@ public interface Observable<T> {
     public EventStream<T> throttle(long delay, TimeUnit timeUnit);
 
     public EventStream<T> doAction(F1<T, Void> func);
+
+    public EventStream<T> scan(T seed, F1<T, T> accumulator);
 }
