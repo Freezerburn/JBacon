@@ -72,12 +72,12 @@ public class Utils {
             while(!done[0]) {
                 Thread.yield();
             }
+            System.out.println(description + ": test took " +
+                    (TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS) - startTime) +
+                    "ms");
         } catch (Exception e) {
             e.printStackTrace();
         }
-        System.out.println(description + ": test took " +
-                (TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS) - startTime) +
-                "ms");
     }
 
     public static <T> void expectStreamEvents(final String description,

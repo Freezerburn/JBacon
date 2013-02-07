@@ -9,6 +9,7 @@ import jbacon.interfaces.Observable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
@@ -52,6 +53,10 @@ public class EventStream<T> implements Observable<T> {
     }
 
     protected String onDistribute(final Event<T> event) {
+        return JBacon.pass;
+    }
+
+    protected String onDistribute(final Future<Event<T>> future) {
         return JBacon.pass;
     }
 
@@ -118,7 +123,10 @@ public class EventStream<T> implements Observable<T> {
 //            JBacon.threading.submit(new Runnable() {
 //                @Override
 //                public void run() {
-                    final String ret = stream.distribute(val);
+                    String ret;
+//                    synchronized (stream) {
+                        ret = stream.distribute(val);
+//                    }
                     if(ret.equals(JBacon.noMore)) {
 //                        System.out.println(uid + ": Unsubscribing stream " + stream.uid);
                         EventStream.this.streamUnsubscribe(stream);
@@ -214,6 +222,31 @@ public class EventStream<T> implements Observable<T> {
             synchronized (this.streamLock) {
                 this.streamTake(val);
             }
+        }
+
+        return JBacon.more;
+    }
+
+    protected String distribute(final Future<Event<T>> future) {
+        if(this.ended) return JBacon.noMore;
+
+        // *** END HANDLING
+        if(future.isDone()) {
+            try {
+                return this.distribute(future.get());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+        else {
+            JBacon.intervalScheduler.schedule(new Runnable() {
+                @Override
+                public void run() {
+                    distribute(future);
+                }
+            }, 2, TimeUnit.MILLISECONDS);
         }
 
         return JBacon.more;
@@ -317,39 +350,46 @@ public class EventStream<T> implements Observable<T> {
         final EventStream<T> intermediary = new EventStream<T>() {
             @Override
             protected String distribute(final Event<T> event) {
-                Event<K> newEvent;
                 System.out.println("map event");
-                if(event.isInitial()) {
-                    try {
-                        System.out.println("initial event " + event.getValue());
-                        newEvent = new Event.Initial<K>(getFromVal.run(event.getValue()));
-                        System.out.println("initial event 2 " + newEvent.getValue());
-                    } catch (Exception e) {
-                        System.out.println("error event");
-                        newEvent = new Event.Error<K>(e.toString());
+                Future<Event<K>> future = JBacon.threading.submit(new Callable<Event<K>>() {
+                    @Override
+                    public Event<K> call() throws Exception {
+                        Event<K> newEvent;
+                        System.out.println("Starting value tranformation async");
+                        if(event.isInitial()) {
+                            try {
+                                System.out.println("initial event " + event.getValue());
+                                newEvent = new Event.Initial<K>(getFromVal.run(event.getValue()));
+                                System.out.println("initial event 2 " + newEvent.getValue());
+                            } catch (Exception e) {
+                                System.out.println("error event");
+                                newEvent = new Event.Error<K>(e.toString());
+                            }
+                        }
+                        else if(event.isNext()) {
+                            try {
+                                System.out.println("next event");
+                                newEvent = new Event.Next<K>(getFromVal.run(event.getValue()));
+                            } catch (Exception e) {
+                                System.out.println("error event");
+                                newEvent = new Event.Error<K>(e.toString());
+                            }
+                        }
+                        else if(event.isEnd()) {
+                            System.out.println("end event");
+                            newEvent = new Event.End<K>();
+                        }
+                        else {
+                            System.out.println("error event");
+                            newEvent = new Event.Error<K>(event.getError());
+                        }
+                        return newEvent;  //To change body of implemented methods use File | Settings | File Templates.
                     }
-                }
-                else if(event.isNext()) {
-                    try {
-                        System.out.println("next event");
-                        newEvent = new Event.Next<K>(getFromVal.run(event.getValue()));
-                    } catch (Exception e) {
-                        System.out.println("error event");
-                        newEvent = new Event.Error<K>(e.toString());
-                    }
-                }
-                else if(event.isEnd()) {
-                    System.out.println("end event");
-                    newEvent = new Event.End<K>();
-                }
-                else {
-                    System.out.println("error event");
-                    newEvent = new Event.Error<K>(event.getError());
-                }
+                });
                 // We don't even want to call our own distribute, we're merely here to transmit the transformed
                 // Event to the returned EventStream.
                 System.out.println("distribute");
-                return ret.distribute(newEvent);
+                return ret.distribute(future);
             }
         };
         intermediary.parent = this;

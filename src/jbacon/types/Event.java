@@ -10,7 +10,7 @@ package jbacon.types;
 public abstract class Event<T> {
     private static long nextUid = 0;
 
-    protected T val;
+    protected T val = null;
     protected String error;
     protected final long timeOfCreation = System.nanoTime();
     private final long uid = nextUid++;
