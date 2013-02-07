@@ -80,21 +80,6 @@ public class JBacon {
         }));
     }
 
-    // TODO: IMPLEMENTATIONS YAY
-    // TODO: Full compliance with function construction rules
-    // TODO: Testing all of these
-    // TODO: Implementing and testing more features in EventStreams in general
-    // TODO: Simplification of EventStream? If Possible?
-    // TODO: Implement Property
-    // TODO: Better Bus/EventStream interaction?
-    // TODO: Better Bus in general?
-    // TODO: Easier way to create custom EventStreams? So that these functions aren't hacky?
-    // Don't know what a Promise is supposed to be yet, so we'll just leave this commented for now.
-    //  Maybe something that eventually gets a value, and when it does emits an event then end?
-//    public static <T> EventStream<T> fromPromise(Promise<T> promise) {
-//        return null;
-//    }
-
     /**
      * Creates an EventStream that pushes the passed value to the first subscriber once, and then
      * immediately ends.
@@ -130,7 +115,6 @@ public class JBacon {
         final EventStream<T> ret = new EventStream<T>() {
             @Override
             protected void onSubscribe() {
-                System.out.println(uid + ": distributing initial");
                 this.distribute(initial);
                 for(int i = 1; i < vals.length; i++) {
                     Event<T> next = new Event.Next<T>(vals[i]);
@@ -342,7 +326,6 @@ public class JBacon {
         final EventStream<T> ret = new EventStream<T>() {
             @Override
             protected void onSubscribe() {
-                System.out.println("JBacon.later: scheduling distribution");
                 ScheduledFuture<Void> future = intervalScheduler.schedule(new Callable<Void>() {
                     @Override
                     public Void call() throws Exception {

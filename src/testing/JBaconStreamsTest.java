@@ -20,14 +20,14 @@ import static org.junit.Assert.assertTrue;
  */
 public class JBaconStreamsTest {
     @Test(timeout = 200)
-    public void testLaterWithUtil() {
+    public void testLater() {
         final F<EventStream<String>> f = new F<EventStream<String>>() {
             @Override
             public EventStream<String> run() {
                 return JBacon.later(100, TimeUnit.MILLISECONDS, "lol");
             }
         };
-        Utils.expectStreamEvents("testLaterWithUtil",
+        Utils.expectStreamEvents("Test JBacon.later",
                 f,
                 0,
                 110,
@@ -36,14 +36,14 @@ public class JBaconStreamsTest {
     }
 
     @Test(timeout = 300)
-    public void testSequentiallyWithUtil() {
+    public void testSequentially() {
         final F<EventStream<String>> f = new F<EventStream<String>>() {
             @Override
             public EventStream<String> run() {
                 return JBacon.sequentially(100, TimeUnit.MILLISECONDS, "lol", "wut");
             }
         };
-        Utils.expectStreamEvents("testSequentiallyWithUtil",
+        Utils.expectStreamEvents("Test JBacon.sequentially",
                 f,
                 0,
                 110,
@@ -52,14 +52,14 @@ public class JBaconStreamsTest {
     }
 
     @Test(timeout = 450)
-    public void testIntervalWithUtil() {
+    public void testInterval() {
         final F<EventStream<String>> f = new F<EventStream<String>>() {
             @Override
             public EventStream<String> run() {
                 return JBacon.interval(100, TimeUnit.MILLISECONDS, "lol").take(3);
             }
         };
-        Utils.expectStreamEvents("testIntervalWithUtil",
+        Utils.expectStreamEvents("Test JBacon.interval (take 3)",
                 f,
                 0,
                 110,
@@ -68,7 +68,7 @@ public class JBaconStreamsTest {
     }
 
     @Test(timeout = 50)
-    public void testFromCallbackWithUtil() {
+    public void testFromCallback() {
         final F1<F1<String, Void>, String> callback = new F1<F1<String, Void>, String>() {
             @Override
             public String run(F1<String, Void> val) {
@@ -82,39 +82,39 @@ public class JBaconStreamsTest {
                 return JBacon.fromCallback(callback);
             }
         };
-        Utils.expectStreamEvents("testFromCallbackWithUtil",
+        Utils.expectStreamEvents("Test JBacon.callback",
                 f,
                 "lol");
     }
 
     @Test(timeout = 100)
-    public void testFromArrayWithUtil() {
+    public void testFromArray() {
         final F<EventStream<Float>> f = new F<EventStream<Float>>() {
             @Override
             public EventStream<Float> run() {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f);
             }
         };
-        Utils.expectStreamEvents("testFromArrayWithUtil",
+        Utils.expectStreamEvents("Test JBacon.fromArray",
                 f,
                 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f);
     }
 
     @Test(timeout = 100)
-    public void testFromArrayTakeWithUtil() {
+    public void testFromArrayTake() {
         final F<EventStream<Float>> f = new F<EventStream<Float>>() {
             @Override
             public EventStream<Float> run() {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).take(4);
             }
         };
-        Utils.expectStreamEvents("testFromArrayTakeWithUtil",
+        Utils.expectStreamEvents("Test JBacon.fromArray (take 4)",
                 f,
                 1.0f, 2.0f, 3.0f, 4.0f);
     }
 
     @Test(timeout = 100)
-    public void testFromArrayFilterWithUtil() {
+    public void testFromArrayFilter() {
         final F<EventStream<Float>> f1 = new F<EventStream<Float>>() {
             @Override
             public EventStream<Float> run() {
@@ -127,20 +127,19 @@ public class JBaconStreamsTest {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f).filter(true);
             }
         };
-        Utils.expectStreamEvents("testFromArrayFilterWithUtilFalse",
+        Utils.expectStreamEvents("Test JBacon.fromArray (filter false)",
                 f1,
                 new Float[]{});
-        Utils.expectStreamEvents("testFromArrayFilterWithUtilTrue",
+        Utils.expectStreamEvents("Test JBacon.fromArray (filter true)",
                 f2,
                 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f);
     }
 
     @Test(timeout = 100)
-    public void testFromArrayMapWithUtil() {
+    public void testFromArrayMap() {
         final F1<Float, Float> multTwo = new F1<Float, Float>() {
             @Override
             public Float run(Float val) {
-                System.out.println("multtwo: " + (val * 2.0f));
                 return val * 2.0f;
             }
         };
@@ -150,7 +149,7 @@ public class JBaconStreamsTest {
                 return JBacon.fromArray(1.0f, 2.0f, 3.0f, 4.0f).map(multTwo);
             }
         };
-        Utils.expectStreamEvents("testFromArrayMapWithUtil",
+        Utils.expectStreamEvents("Test JBacon.fromArray (map val * 2)",
                 f,
                 2.0f, 4.0f, 6.0f, 8.0f);
     }
