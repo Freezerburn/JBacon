@@ -6,6 +6,6 @@ package jbacon.interfaces;
  * Date: 1/23/13
  * Time: 1:22 PM
  */
-public interface F1<Param, Ret> {
-    public Ret run(final Param val) throws Exception;
+public interface F2<Param1, Param2, Ret> {
+    public Ret run(final Param1 val1, final Param2 val2);
 }

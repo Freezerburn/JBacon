@@ -1,3 +1,5 @@
 JBacon.iml
 .idea
 out
+.gradle
+build

@@ -26,12 +26,7 @@ public class Bus<T> extends EventStream<T> {
         final Event<T> end = new Event.End<T>();
         synchronized (this.childrenLock) {
             for(final EventStream<T> stream : this.children) {
-                JBacon.threading.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        stream.distribute(end);
-                    }
-                });
+                stream.distribute(end);
             }
             this.children.clear();
         }
@@ -45,15 +40,10 @@ public class Bus<T> extends EventStream<T> {
         if(this.ended) return;
         synchronized (childrenLock) {
             for(final EventStream<T> stream : this.children) {
-                JBacon.threading.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        String ret = stream.distribute(e);
-                        if(ret.equals(JBacon.noMore)) {
-                            Bus.this.unplug(stream);
-                        }
-                    }
-                });
+                String ret = stream.distribute(e);
+                if(ret.equals(JBacon.noMore)) {
+                    Bus.this.unplug(stream);
+                }
             }
         }
     }
